@@ -8,6 +8,8 @@ export interface QuizQuestion {
 
 export interface CreateQuizDto {
   title: string;
+  topic?: string;
+  lesson?: string;
   questions: QuizQuestion[];
 }
 
@@ -17,6 +19,14 @@ export const quizService = {
    */
   async getAllQuizzes(): Promise<any[]> {
     const response = await apiClient.get('/quizzes');
+    return response.data || [];
+  },
+
+  /**
+   * Get all quizzes for a specific lesson
+   */
+  async getQuizzesByLesson(lessonId: string): Promise<any[]> {
+    const response = await apiClient.get(`/quizzes/lesson/${lessonId}`);
     return response.data || [];
   },
 
@@ -33,6 +43,14 @@ export const quizService = {
    */
   async getQuizById(id: string): Promise<any> {
     const response = await apiClient.get(`/quizzes/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Create a generic quiz attached to a lesson or topic
+   */
+  async createGenericQuiz(data: CreateQuizDto): Promise<any> {
+    const response = await apiClient.post('/quizzes/create', data);
     return response.data;
   },
 

@@ -18,6 +18,9 @@ import {
   BookOpen,
   GraduationCap,
   Filter,
+  Mic,
+  Image as ImageIcon,
+  HelpCircle,
 } from 'lucide-react';
 
 export default function LessonsPage() {
@@ -242,7 +245,22 @@ export default function LessonsPage() {
                           <span>{lesson.readTime || 5} min read</span>
                           {lesson.audioUrl && (
                             <span className="inline-flex items-center gap-1 text-teal-600 font-medium">
-                              <Volume2 className="w-3.5 h-3.5" /> Audio Ready
+                              <Volume2 className="w-3.5 h-3.5" /> TTS Ready
+                            </span>
+                          )}
+                          {lesson.voiceNoteUrl && (
+                            <span className="inline-flex items-center gap-1 text-purple-600 font-medium">
+                              <Mic className="w-3.5 h-3.5" /> Voice Note
+                            </span>
+                          )}
+                          {Array.isArray(lesson.images) && lesson.images.length > 0 && (
+                            <span className="inline-flex items-center gap-1 text-emerald-600 font-medium">
+                              <ImageIcon className="w-3.5 h-3.5" /> {lesson.images.length} Image{lesson.images.length > 1 ? 's' : ''}
+                            </span>
+                          )}
+                          {lesson.quiz && (
+                            <span className="inline-flex items-center gap-1 text-amber-600 font-medium">
+                              <HelpCircle className="w-3.5 h-3.5" /> Quiz Attached
                             </span>
                           )}
                         </div>

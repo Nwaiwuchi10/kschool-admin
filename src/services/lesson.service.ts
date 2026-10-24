@@ -7,6 +7,10 @@ export interface CreateLessonDto {
   subjectId?: string;
   subjects?: string[];
   classes?: string[];
+  images?: string[];
+  voiceNoteUrl?: string;
+  voiceNoteDuration?: number;
+  quiz?: string;
   order?: number;
   status?: 'published' | 'draft';
   readTime?: number;

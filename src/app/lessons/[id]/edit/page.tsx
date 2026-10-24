@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState, useRef, Suspense } from 'react';
+import React, { useState, useRef, useEffect, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AdminLayout from '@/components/layout/AdminLayout';
 import InputField from '@/components/ui/InputField';
 import PrimaryButton from '@/components/ui/PrimaryButton';
 import { lessonService } from '@/services/lesson.service';
+import { uploadService } from '@/services/upload.service';
+import { quizService } from '@/services/quiz.service';
 import { ttsService } from '@/services/tts.service';
 import { useResponseModal } from '@/context/ModalContext';
 import {
@@ -17,7 +19,13 @@ import {
   Pause,
   RefreshCw,
   Sparkles,
-  CheckCircle,
+  Image as ImageIcon,
+  Mic,
+  Square,
+  Upload,
+  HelpCircle,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
 import { FormulaToolbar } from '@/components/FormulaToolbar';
 import { MathRenderer } from '@/components/MathRenderer';
@@ -28,16 +36,172 @@ function EditLessonContent() {
   const lessonId = Array.isArray(params?.id) ? params.id[0] : params?.id || '';
 
   const { showSuccess, showError, showModal } = useResponseModal();
-  const [title, setTitle] = useState('Understanding Forces');
-  const [content, setContent] = useState(
-    'A force is a push or pull upon an object resulting from the object’s interaction with another object. Forces only exist as a result of an interaction.'
-  );
-  const [audioUrl, setAudioUrl] = useState<string | null>('https://example.com/audio/intro_to_motion_v2.mp3');
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Multiple Cloudinary Images (Max 10MB)
+  const [images, setImages] = useState<string[]>([]);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+
+  // Voice Note per lesson (Cloudinary upload, Max 10MB)
+  const [voiceNoteUrl, setVoiceNoteUrl] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [isUploadingVoiceNote, setIsUploadingVoiceNote] = useState(false);
+  const [isPlayingVoiceNote, setIsPlayingVoiceNote] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const voiceNoteAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Attached Quiz / Assessment
+  const [availableQuizzes, setAvailableQuizzes] = useState<any[]>([]);
+  const [selectedQuizId, setSelectedQuizId] = useState<string>('');
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    async function loadLessonAndQuizzes() {
+      try {
+        setIsLoading(true);
+        const [lessonData, quizzesData] = await Promise.all([
+          lessonService.getLessonById(lessonId),
+          quizService.getAllQuizzes(),
+        ]);
+        setAvailableQuizzes(quizzesData || []);
+        if (lessonData) {
+          setTitle(lessonData.title || '');
+          setContent(lessonData.content || '');
+          setAudioUrl(lessonData.audioUrl || null);
+          setImages(lessonData.images || []);
+          setVoiceNoteUrl(lessonData.voiceNoteUrl || null);
+          setRecordingSeconds(lessonData.voiceNoteDuration || 0);
+          setSelectedQuizId(lessonData.quiz?._id || lessonData.quiz || '');
+        }
+      } catch (err: any) {
+        showError('Load Error', err?.message || 'Failed to load lesson details.');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    if (lessonId) {
+      loadLessonAndQuizzes();
+    }
+  }, [lessonId]);
+
+  // Multiple Image Upload to Cloudinary (Max 10MB each)
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const fileList = Array.from(files);
+    const MAX_SIZE = 10 * 1024 * 1024;
+    const oversized = fileList.filter((f) => f.size > MAX_SIZE);
+    if (oversized.length > 0) {
+      showError(
+        'File Size Exceeded',
+        `Some files exceed the maximum 10MB limit (${oversized.map((f) => f.name).join(', ')}). Please select files under 10MB.`
+      );
+      return;
+    }
+
+    try {
+      setIsUploadingImages(true);
+      const res = await uploadService.uploadMultipleFiles(fileList, 'kschoolmate/lessons');
+      const uploadedUrls = res.files.map((f) => f.url);
+      setImages((prev) => [...prev, ...uploadedUrls]);
+      showSuccess(
+        'Images Uploaded (Cloudinary)',
+        `Successfully uploaded ${res.count} image(s) to Cloudinary.`
+      );
+    } catch (err: any) {
+      showError('Upload Failed', err?.message || 'Failed to upload images to Cloudinary.');
+    } finally {
+      setIsUploadingImages(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveImage = (indexToRemove: number) => {
+    setImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  // Voice Note Recording
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        if (audioBlob.size > 10 * 1024 * 1024) {
+          showError('Voice Note Too Large', 'Voice note exceeds 10MB limit.');
+          return;
+        }
+
+        try {
+          setIsUploadingVoiceNote(true);
+          const uploadRes = await uploadService.uploadVoiceNote(audioBlob);
+          setVoiceNoteUrl(uploadRes.url);
+          showSuccess('Voice Note Saved', 'Voice note recorded and uploaded to Cloudinary.');
+        } catch (err: any) {
+          showError('Voice Upload Failed', err?.message || 'Failed to upload voice note to Cloudinary.');
+        } finally {
+          setIsUploadingVoiceNote(false);
+        }
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      timerIntervalRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => prev + 1);
+      }, 1000);
+    } catch (err: any) {
+      showError('Microphone Access Error', 'Unable to access microphone. Please grant permission in browser settings.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
+      setIsRecording(false);
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    }
+  };
+
+  const togglePlayVoiceNote = () => {
+    if (!voiceNoteUrl) return;
+    if (!voiceNoteAudioRef.current) {
+      voiceNoteAudioRef.current = new Audio(voiceNoteUrl);
+      voiceNoteAudioRef.current.onended = () => setIsPlayingVoiceNote(false);
+    }
+
+    if (isPlayingVoiceNote) {
+      voiceNoteAudioRef.current.pause();
+      setIsPlayingVoiceNote(false);
+    } else {
+      voiceNoteAudioRef.current.play();
+      setIsPlayingVoiceNote(true);
+    }
+  };
 
   const togglePlay = () => {
     if (!audioUrl) return;
@@ -75,22 +239,41 @@ function EditLessonContent() {
     showModal({
       type: 'warning',
       title: 'Delete Lesson',
-      message: 'Are you sure you want to permanently delete this lesson and its audio files?',
+      message: 'Are you sure you want to permanently delete this lesson and its media files?',
       confirmText: 'Yes, Delete',
       cancelText: 'Cancel',
-      onConfirm: () => {
-        showSuccess('Lesson Deleted', 'The lesson has been removed from the curriculum.', () =>
-          router.push('/lessons')
-        );
+      onConfirm: async () => {
+        try {
+          await lessonService.deleteLesson(lessonId);
+          showSuccess('Lesson Deleted', 'The lesson has been removed from the curriculum.', () =>
+            router.push('/lessons')
+          );
+        } catch (err: any) {
+          showError('Delete Failed', err?.message || 'Failed to delete lesson.');
+        }
       },
     });
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!title.trim()) {
+      showError('Validation Error', 'Lesson title is required.');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      showSuccess('Changes Saved', 'Lesson content and audio metadata updated successfully.', () =>
+      await lessonService.updateLesson(lessonId, {
+        title: title.trim(),
+        content: content.trim(),
+        audioUrl: audioUrl || undefined,
+        images,
+        voiceNoteUrl: voiceNoteUrl || undefined,
+        voiceNoteDuration: recordingSeconds || undefined,
+        quiz: selectedQuizId || undefined,
+      });
+      showSuccess('Changes Saved', 'Lesson content, Cloudinary media, and attached quiz updated successfully.', () =>
         router.push('/lessons')
       );
     } catch (err: any) {
@@ -99,6 +282,24 @@ function EditLessonContent() {
       setIsSaving(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <AdminLayout
+        activeNav="Lessons"
+        breadcrumbs={[
+          { label: 'Management', href: '/classes' },
+          { label: 'Lessons', href: '/lessons' },
+          { label: 'Loading Lesson...' },
+        ]}
+      >
+        <div className="flex flex-col items-center justify-center py-24 gap-3">
+          <Loader2 className="w-8 h-8 text-[#0D6D62] animate-spin" />
+          <span className="text-xs font-semibold text-gray-500">Loading lesson and assessment details...</span>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout
@@ -208,6 +409,180 @@ function EditLessonContent() {
                   <span>{isRegenerating ? 'Regenerating...' : 'Regenerate Audio'}</span>
                 </button>
               </div>
+            </div>
+
+            {/* 1. Multiple Images Upload (Cloudinary - Max 10MB each) */}
+            <div className="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4 text-[#0D6D62]" />
+                    <span>Lesson Visuals & Diagram Images ({images.length})</span>
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Upload illustrations, chalkboard captures, or figures via Cloudinary.
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-bold text-[#0D6D62] self-start sm:self-auto">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>Max 10MB per file</span>
+                </div>
+              </div>
+
+              {/* Upload Drop Zone */}
+              <label className="border-2 border-dashed border-gray-300 hover:border-[#0D6D62] rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer bg-gray-50/50 hover:bg-emerald-50/30 transition-all">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={handleImageUpload}
+                  disabled={isUploadingImages}
+                  className="hidden"
+                />
+                <div className="w-10 h-10 rounded-full bg-emerald-50 text-[#0D6D62] flex items-center justify-center">
+                  <Upload className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold text-gray-800">
+                  {isUploadingImages ? 'Uploading to Cloudinary...' : 'Click or Drag images here to upload'}
+                </span>
+                <span className="text-[11px] text-gray-400">
+                  Supported formats: PNG, JPG, WEBP, GIF (Maximum 10MB per image)
+                </span>
+              </label>
+
+              {/* Uploaded Images Grid */}
+              {images.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                  {images.map((url, idx) => (
+                    <div
+                      key={idx}
+                      className="group relative rounded-xl border border-gray-200 overflow-hidden bg-gray-50 aspect-video flex items-center justify-center shadow-2xs"
+                    >
+                      <img
+                        src={url}
+                        alt={`Lesson visual ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(idx)}
+                        className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-red-600/90 hover:bg-red-700 text-white shadow-xs opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        title="Remove image"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-bold text-white">
+                        Cloudinary #{idx + 1}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 2. Voice Note Recording per Lesson (Cloudinary - Max 10MB) */}
+            <div className="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                    <Mic className="w-4 h-4 text-[#0D6D62]" />
+                    <span>Teacher Voice Note Narration</span>
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Record live voice explanations for students or upload a recorded note.
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-xs font-bold text-purple-700 self-start sm:self-auto">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>Max 10MB per voice note</span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl bg-gray-50 border border-gray-200">
+                {!isRecording ? (
+                  <button
+                    type="button"
+                    onClick={startRecording}
+                    disabled={isUploadingVoiceNote}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-60"
+                  >
+                    <Mic className="w-4 h-4" />
+                    <span>{voiceNoteUrl ? 'Record New Voice Note' : 'Start Recording Voice Note'}</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={stopRecording}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 hover:bg-black text-white text-xs font-bold transition-all animate-pulse cursor-pointer"
+                  >
+                    <Square className="w-4 h-4 text-red-400" />
+                    <span>Stop Recording ({recordingSeconds}s)</span>
+                  </button>
+                )}
+
+                {isUploadingVoiceNote && (
+                  <span className="text-xs font-semibold text-[#0D6D62] flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-[#0D6D62] border-t-transparent rounded-full animate-spin"></div>
+                    Uploading voice note to Cloudinary...
+                  </span>
+                )}
+
+                {voiceNoteUrl && !isUploadingVoiceNote && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={togglePlayVoiceNote}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-[#0D6D62] text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      {isPlayingVoiceNote ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                      <span>{isPlayingVoiceNote ? 'Pause Voice Note' : 'Listen to Voice Note'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVoiceNoteUrl(null)}
+                      className="p-2 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                      title="Delete Voice Note"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 3. Attach Quiz / Exercise to Lesson */}
+            <div className="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                    <HelpCircle className="w-4 h-4 text-[#0D6D62]" />
+                    <span>Attach Quiz / Assessment to Lesson</span>
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Attach an interactive quiz or assessment that students take after completing this lesson.
+                  </p>
+                </div>
+                <Link
+                  href="/quizzes/new"
+                  target="_blank"
+                  className="text-xs font-bold text-[#0D6D62] hover:underline"
+                >
+                  + Create New Quiz
+                </Link>
+              </div>
+
+              <select
+                value={selectedQuizId}
+                onChange={(e) => setSelectedQuizId(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm font-semibold text-gray-800 bg-[#FAFAFA] focus:outline-none focus:border-[#0D6D62] cursor-pointer"
+              >
+                <option value="">No Quiz Attached (Optional)</option>
+                {availableQuizzes.map((quiz) => (
+                  <option key={quiz._id} value={quiz._id}>
+                    {quiz.title} ({quiz.questions?.length || 0} questions)
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Save Button */}
