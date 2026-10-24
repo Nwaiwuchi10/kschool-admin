@@ -21,6 +21,8 @@ export interface SubjectLesson {
   subjects?: (string | Subject)[];
   classes?: string[];
   content?: string;
+  objectives?: string[];
+  outlines?: string[];
   images?: string[];
   voiceNoteUrl?: string;
   voiceNoteDuration?: number;

@@ -26,6 +26,9 @@ import {
   HelpCircle,
   AlertCircle,
   Loader2,
+  Target,
+  ListChecks,
+  Plus,
 } from 'lucide-react';
 import { FormulaToolbar } from '@/components/FormulaToolbar';
 import { MathRenderer } from '@/components/MathRenderer';
@@ -43,6 +46,14 @@ function EditLessonContent() {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Optional Lesson Learning Objectives
+  const [objectives, setObjectives] = useState<string[]>([]);
+  const [newObjective, setNewObjective] = useState('');
+
+  // Optional Lesson Outlines / Agenda
+  const [outlines, setOutlines] = useState<string[]>([]);
+  const [newOutline, setNewOutline] = useState('');
 
   // Multiple Cloudinary Images (Max 10MB)
   const [images, setImages] = useState<string[]>([]);
@@ -77,6 +88,8 @@ function EditLessonContent() {
         if (lessonData) {
           setTitle(lessonData.title || '');
           setContent(lessonData.content || '');
+          setObjectives(lessonData.objectives || []);
+          setOutlines(lessonData.outlines || []);
           setAudioUrl(lessonData.audioUrl || null);
           setImages(lessonData.images || []);
           setVoiceNoteUrl(lessonData.voiceNoteUrl || null);
@@ -267,6 +280,8 @@ function EditLessonContent() {
       await lessonService.updateLesson(lessonId, {
         title: title.trim(),
         content: content.trim(),
+        objectives,
+        outlines,
         audioUrl: audioUrl || undefined,
         images,
         voiceNoteUrl: voiceNoteUrl || undefined,
@@ -345,6 +360,167 @@ function EditLessonContent() {
               onChange={(e) => setTitle(e.target.value)}
               disabled={isSaving}
             />
+
+            {/* Optional Lesson Objectives & Outlines Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 1. Learning Objectives */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                    <Target className="w-4 h-4 text-[#0D6D62]" />
+                    <span>Learning Objectives <span className="text-gray-400 font-normal">(Optional)</span></span>
+                  </label>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-[#0D6D62]">
+                    {objectives.length} Added
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-500">
+                  By the end of the lesson, students should be able to:
+                </p>
+
+                {/* Add Objective Input */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newObjective}
+                    placeholder="e.g. Define a verb, Identify verbs in sentences..."
+                    onChange={(e) => setNewObjective(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (newObjective.trim()) {
+                          setObjectives((prev) => [...prev, newObjective.trim()]);
+                          setNewObjective('');
+                        }
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0D6D62] bg-gray-50/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newObjective.trim()) {
+                        setObjectives((prev) => [...prev, newObjective.trim()]);
+                        setNewObjective('');
+                      }
+                    }}
+                    className="p-2 rounded-xl bg-[#0D6D62] hover:bg-[#0A5A51] text-white text-xs font-bold transition-colors cursor-pointer"
+                    title="Add Objective"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Objectives List */}
+                {objectives.length > 0 ? (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto pt-1">
+                    {objectives.map((obj, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-gray-50 text-xs text-gray-800 border border-gray-100 group"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-emerald-100 text-[#0D6D62] text-[10px] font-bold flex items-center justify-center shrink-0">
+                            {idx + 1}
+                          </span>
+                          <span>{obj}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setObjectives((prev) => prev.filter((_, i) => i !== idx))}
+                          className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer p-0.5"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-gray-400 italic bg-gray-50 p-2.5 rounded-xl border border-dashed border-gray-200">
+                    Example: 1. Define a verb • 2. Identify verbs in sentences • 3. Mention different types of verbs
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Lesson Outlines / Agenda */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                    <ListChecks className="w-4 h-4 text-[#0D6D62]" />
+                    <span>Lesson Outlines <span className="text-gray-400 font-normal">(Optional)</span></span>
+                  </label>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700">
+                    {outlines.length} Added
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-500">
+                  Topic flow and pedagogical breakdown covered in this lesson:
+                </p>
+
+                {/* Add Outline Input */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newOutline}
+                    placeholder="e.g. Introduction & Definition, Types of Verbs, Practice Drills..."
+                    onChange={(e) => setNewOutline(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (newOutline.trim()) {
+                          setOutlines((prev) => [...prev, newOutline.trim()]);
+                          setNewOutline('');
+                        }
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0D6D62] bg-gray-50/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newOutline.trim()) {
+                        setOutlines((prev) => [...prev, newOutline.trim()]);
+                        setNewOutline('');
+                      }
+                    }}
+                    className="p-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold transition-colors cursor-pointer"
+                    title="Add Outline"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Outlines List */}
+                {outlines.length > 0 ? (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto pt-1">
+                    {outlines.map((otl, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-gray-50 text-xs text-gray-800 border border-gray-100 group"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold flex items-center justify-center shrink-0">
+                            {idx + 1}
+                          </span>
+                          <span>{otl}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setOutlines((prev) => prev.filter((_, i) => i !== idx))}
+                          className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer p-0.5"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-gray-400 italic bg-gray-50 p-2.5 rounded-xl border border-dashed border-gray-200">
+                    Example: Step 1: Definition • Step 2: Action vs Helping Verbs • Step 3: Sentence Formation
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Lesson Content Textarea */}
             <div className="flex flex-col gap-1.5 text-left">
