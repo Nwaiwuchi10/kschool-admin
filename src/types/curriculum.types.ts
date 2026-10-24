@@ -32,8 +32,9 @@ export interface SubjectTopic {
 
 export interface Subject {
   _id: string;
-  name: string; // e.g. "JSS 1 - Science", "Mathematics", "SS 2 - Science"
-  classLevel: string; // e.g. "JSS 1", "SS 2", "Primary 5"
+  name: string; // e.g. "English Language", "Mathematics", "Basic Science"
+  classLevel?: string; // Legacy / primary class
+  classes?: string[]; // Array of linked classes e.g. ["JSS 1", "JSS 2", "Primary 5"]
   description?: string;
   topics?: SubjectTopic[];
   lessonCount?: number;

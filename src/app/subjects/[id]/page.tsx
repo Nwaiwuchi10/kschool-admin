@@ -107,12 +107,39 @@ function SubjectDetailContent() {
 
         {/* Header Title matching Screen 4 */}
         <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
-            {subject?.name || 'SS 2 - Science'}
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1 max-w-2xl">
-            {subject?.description || 'Curriculum Modules, Lessons, and Syllabus Progress'}
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
+                {subject?.name || 'Subject Overview'}
+              </h1>
+              <p className="text-xs sm:text-sm text-gray-500 mt-1 max-w-2xl">
+                {subject?.description || 'Curriculum Modules, Lessons, and Syllabus Progress'}
+              </p>
+            </div>
+
+            {/* Linked Classes Pills */}
+            <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
+              <span className="text-xs font-semibold text-gray-400 mr-1">Classes:</span>
+              {Array.isArray(subject?.classes) && subject.classes.length > 0 ? (
+                subject.classes.map((cls) => (
+                  <span
+                    key={cls}
+                    className="px-2.5 py-1 rounded-lg bg-[#E6F7F3] border border-[#A6E6D8] text-xs font-bold text-[#0D6D62]"
+                  >
+                    {cls}
+                  </span>
+                ))
+              ) : subject?.classLevel ? (
+                <span className="px-2.5 py-1 rounded-lg bg-gray-100 text-xs font-bold text-gray-700">
+                  {subject.classLevel}
+                </span>
+              ) : (
+                <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-xs font-semibold text-amber-700 border border-amber-200">
+                  Standalone (Not linked to any class)
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Modules Cards Grid matching Screen 4 */}

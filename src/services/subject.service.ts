@@ -22,12 +22,32 @@ export const subjectService = {
     return response.data;
   },
 
-  /**
-   * Create a new subject
-   */
-  async createSubject(data: { name: string; classLevel: string; description?: string }): Promise<Subject> {
+  async createSubject(data: {
+    name: string;
+    classLevel?: string;
+    classes?: string[];
+    description?: string;
+  }): Promise<Subject> {
     const response = await apiClient.post<Subject>('/subjects', data);
     return response.data;
+  },
+
+  /**
+   * Update an existing subject and its linked classes
+   */
+  async updateSubject(
+    id: string,
+    data: { name?: string; classLevel?: string; classes?: string[]; description?: string }
+  ): Promise<Subject> {
+    const response = await apiClient.patch<Subject>(`/subjects/${id}`, data);
+    return response.data;
+  },
+
+  /**
+   * Delete a subject
+   */
+  async deleteSubject(id: string): Promise<void> {
+    await apiClient.delete(`/subjects/${id}`);
   },
 
   /**
