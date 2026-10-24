@@ -67,45 +67,66 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     });
   };
 
-  const navItems = [
-    { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { label: 'Students', href: '/students', icon: Users },
-    { label: 'Teachers', href: '/teachers', icon: Tv },
-    { label: 'Classes', href: '/classes', icon: Building2 },
-    { label: 'Subjects', href: '/subjects', icon: BookOpen },
-    { label: 'Lessons', href: '/lessons', icon: BookMarked },
-    { label: 'Exercises', href: '/exercises', icon: FileEdit },
-    { label: 'Quizzes', href: '/quizzes', icon: CheckSquare },
-    { label: 'Subscriptions', href: '/subscriptions', icon: CreditCard },
-    { label: 'Finances', href: '/finances', icon: Wallet },
-    { label: 'Reports', href: '/reports', icon: BarChart3 },
-    { label: 'Announce', href: '/announce', icon: Megaphone },
-    { label: 'Settings', href: '/settings', icon: Settings },
+  const allNavItems = [
+    { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: 'dashboard' },
+    { label: 'Students', href: '/students', icon: Users, permission: 'students' },
+    { label: 'Teachers', href: '/teachers', icon: Tv, permission: 'teachers' },
+    { label: 'Classes', href: '/classes', icon: Building2, permission: 'classes' },
+    { label: 'Subjects', href: '/subjects', icon: BookOpen, permission: 'subjects' },
+    { label: 'Lessons', href: '/lessons', icon: BookMarked, permission: 'lessons' },
+    { label: 'Exercises', href: '/exercises', icon: FileEdit, permission: 'exercises' },
+    // { label: 'Quizzes', href: '/quizzes', icon: CheckSquare, permission: 'quizzes' },
+    { label: 'Subscriptions', href: '/subscriptions', icon: CreditCard, permission: 'subscriptions' },
+    { label: 'Finances', href: '/finances', icon: Wallet, permission: 'finances' },
+    { label: 'Reports', href: '/reports', icon: BarChart3, permission: 'reports' },
+    { label: 'Announce', href: '/announce', icon: Megaphone, permission: 'announcements' },
+    { label: 'Settings', href: '/settings', icon: Settings, permission: 'settings' },
   ];
+
+  const isTeacher = user?.role === 'teacher';
+  const userPermissions = Array.isArray(user?.permissions) ? user.permissions : [];
+
+  // Filter navigation for teachers based on their granted permissions
+  const navItems = isTeacher
+    ? allNavItems.filter((item) => {
+        // Teacher always has access to dashboard & settings
+        if (item.permission === 'dashboard' || item.permission === 'settings') return true;
+        // Check if teacher has explicit permission
+        return userPermissions.includes(item.permission);
+      })
+    : allNavItems;
 
   const mobileBottomNav = [
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { label: 'Management', href: '/classes', icon: SlidersHorizontal },
+    { label: 'Management', href: isTeacher ? (userPermissions.includes('lessons') ? '/lessons' : '/dashboard') : '/classes', icon: SlidersHorizontal },
     { label: 'Finances', href: '/finances', icon: Wallet },
     { label: 'Reports', href: '/reports', icon: TrendingUp },
     { label: 'Settings', href: '/settings', icon: Settings },
-  ];
+  ].filter(item => {
+    if (!isTeacher) return true;
+    if (item.label === 'Finances' || item.label === 'Reports') return false;
+    return true;
+  });
 
-  const adminName = user?.firstName && user?.lastName 
-    ? `${user.firstName} ${user.lastName}` 
-    : user?.firstName || user?.email?.split('@')[0] || 'Administrator';
-  const adminRole = user?.role === 'admin' ? 'School Administrator' : 'Administrator';
-  const schoolName = user?.school || 'School Workspace';
+  const adminName = user?.firstName && user?.lastName
+    ? `${user.firstName} ${user.lastName}`
+    : user?.firstName || user?.email?.split('@')[0] || 'Faculty Member';
+  const adminRole = user?.role === 'admin' 
+    ? 'School Administrator' 
+    : user?.role === 'teacher' 
+      ? 'Class Instructor / Teacher' 
+      : 'Administrator';
+  const schoolName = user?.school || (isTeacher ? 'Teacher Portal' : 'School Workspace');
 
   // Get admin initials
   const initials = (
     user?.firstName && user?.lastName
       ? `${user.firstName[0]}${user.lastName[0]}`
       : user?.firstName
-      ? user.firstName.slice(0, 2)
-      : user?.email
-      ? user.email.slice(0, 2)
-      : 'AD'
+        ? user.firstName.slice(0, 2)
+        : user?.email
+          ? user.email.slice(0, 2)
+          : 'AD'
   ).toUpperCase();
 
   return (
@@ -211,11 +232,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                     <Link
                       key={item.label}
                       href={item.href}
-                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
-                        isActive
+                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${isActive
                           ? 'bg-[#D2F4EB] text-[#0E6659] shadow-xs'
                           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
                       <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#0E6659]' : 'text-gray-500'}`} />
                       <span>{item.label}</span>
@@ -302,11 +322,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                       key={item.label}
                       href={item.href}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                        isActive
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${isActive
                           ? 'bg-[#D2F4EB] text-[#0E6659]'
                           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
                       <Icon className="w-4 h-4" />
                       <span>{item.label}</span>
@@ -353,21 +372,19 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
             item.label === 'Management'
               ? isManagement
               : activeNav.toLowerCase() === item.label.toLowerCase() ||
-                pathname === item.href ||
-                (item.href !== '/dashboard' && pathname?.startsWith(item.href));
+              pathname === item.href ||
+              (item.href !== '/dashboard' && pathname?.startsWith(item.href));
 
           return (
             <Link
               key={item.label}
               href={item.href}
-              className={`flex flex-col items-center justify-center flex-1 py-1 text-[10px] font-bold transition-colors ${
-                isActive ? 'text-[#0D6D62]' : 'text-gray-400 hover:text-gray-700'
-              }`}
+              className={`flex flex-col items-center justify-center flex-1 py-1 text-[10px] font-bold transition-colors ${isActive ? 'text-[#0D6D62]' : 'text-gray-400 hover:text-gray-700'
+                }`}
             >
               <div
-                className={`p-1 rounded-full ${
-                  isActive ? 'bg-[#D2F4EB] text-[#0D6D62]' : 'text-gray-400'
-                }`}
+                className={`p-1 rounded-full ${isActive ? 'bg-[#D2F4EB] text-[#0D6D62]' : 'text-gray-400'
+                  }`}
               >
                 <Icon className="w-4 h-4" />
               </div>

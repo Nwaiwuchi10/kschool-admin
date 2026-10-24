@@ -6,6 +6,10 @@ export interface AdminUser {
   phoneNumber?: string;
   role: 'admin' | 'superadmin' | 'teacher' | 'student';
   class?: string;
+  classes?: string[];
+  subject?: string;
+  subjects?: string[];
+  permissions?: string[];
   school?: string;
   avatar?: string;
   profilePicture?: string;
