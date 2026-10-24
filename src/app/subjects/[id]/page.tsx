@@ -203,6 +203,13 @@ function SubjectDetailContent() {
             </div>
 
             <div className="flex items-center gap-3 self-start sm:self-auto">
+              <Link
+                href={`/lessons/new?subjectId=${subject?._id}&subjectName=${encodeURIComponent(subject?.name || '')}&classLevel=${encodeURIComponent(subject?.classLevel || (subject?.classes?.[0] || ''))}`}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#0D6D62] border border-[#A6E6D8] text-xs sm:text-sm font-bold transition-all shadow-2xs cursor-pointer"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Create Lesson</span>
+              </Link>
               <button
                 type="button"
                 onClick={openEditModal}

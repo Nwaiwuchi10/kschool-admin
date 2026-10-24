@@ -3,6 +3,10 @@ import apiClient from './api';
 export interface CreateLessonDto {
   title: string;
   content: string;
+  topicId?: string;
+  subjectId?: string;
+  subjects?: string[];
+  classes?: string[];
   order?: number;
   status?: 'published' | 'draft';
   readTime?: number;
@@ -12,10 +16,10 @@ export interface CreateLessonDto {
 
 export const lessonService = {
   /**
-   * Get all lessons across topics
+   * Get all lessons across topics with optional filters
    */
-  async getAllLessons(): Promise<any[]> {
-    const response = await apiClient.get('/subjects/lessons/all');
+  async getAllLessons(params?: { classLevel?: string; subjectId?: string }): Promise<any[]> {
+    const response = await apiClient.get('/subjects/lessons/all', { params });
     return response.data;
   },
 
@@ -32,6 +36,14 @@ export const lessonService = {
    */
   async createLesson(topicId: string, data: CreateLessonDto): Promise<any> {
     const response = await apiClient.post(`/subjects/topics/${topicId}/lessons`, data);
+    return response.data;
+  },
+
+  /**
+   * Create a standalone lesson or link directly to subject & classes
+   */
+  async createStandaloneLesson(data: CreateLessonDto): Promise<any> {
+    const response = await apiClient.post('/subjects/lessons', data);
     return response.data;
   },
 

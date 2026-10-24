@@ -1,12 +1,15 @@
 'use client';
 
-import React, { useState, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import AdminLayout from '@/components/layout/AdminLayout';
 import InputField from '@/components/ui/InputField';
 import PrimaryButton from '@/components/ui/PrimaryButton';
 import { lessonService } from '@/services/lesson.service';
+import { subjectService } from '@/services/subject.service';
+import { classService } from '@/services/class.service';
+import { Subject, SchoolClass } from '@/types/curriculum.types';
 import { ttsService, TtsVoice } from '@/services/tts.service';
 import { useResponseModal } from '@/context/ModalContext';
 import {
@@ -21,6 +24,8 @@ import {
   List,
   CheckCircle2,
   Radio,
+  BookOpen,
+  GraduationCap,
 } from 'lucide-react';
 import { FormulaToolbar } from '@/components/FormulaToolbar';
 import { MathRenderer } from '@/components/MathRenderer';
@@ -28,8 +33,9 @@ import { MathRenderer } from '@/components/MathRenderer';
 function NewLessonContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const topicId = searchParams.get('topicId') || '';
-  const topicTitle = searchParams.get('topicTitle') || 'Topic';
+  const initialTopicId = searchParams.get('topicId') || '';
+  const initialSubjectId = searchParams.get('subjectId') || '';
+  const initialClass = searchParams.get('classLevel') || '';
 
   const { showSuccess, showError } = useResponseModal();
   const [title, setTitle] = useState('');
@@ -42,7 +48,44 @@ function NewLessonContent() {
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [errors, setErrors] = useState<{ title?: string; content?: string }>({});
 
+  // Dynamic Subjects & Classes
+  const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]);
+  const [availableClasses, setAvailableClasses] = useState<SchoolClass[]>([]);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>(initialSubjectId);
+  const [selectedClasses, setSelectedClasses] = useState<string[]>(initialClass ? [initialClass] : []);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [subList, clsList] = await Promise.all([
+          subjectService.getSubjects(),
+          classService.getClasses(),
+        ]);
+        setAvailableSubjects(subList || []);
+        setAvailableClasses(clsList || []);
+
+        if (initialSubjectId) {
+          const match = (subList || []).find((s) => s._id === initialSubjectId);
+          if (match && match.classes && match.classes.length > 0 && selectedClasses.length === 0) {
+            setSelectedClasses(match.classes);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load curriculum references for lesson creation:', err);
+      }
+    }
+    loadData();
+  }, [initialSubjectId]);
+
+  const toggleClass = (className: string) => {
+    setSelectedClasses((prev) =>
+      prev.includes(className)
+        ? prev.filter((c) => c !== className)
+        : [...prev, className]
+    );
+  };
 
   const handleGenerateAudio = async () => {
     if (!content.trim()) {
@@ -94,13 +137,24 @@ function NewLessonContent() {
     }
 
     try {
+      await lessonService.createStandaloneLesson({
+        title: title.trim(),
+        content: content.trim(),
+        subjectId: selectedSubjectId || undefined,
+        subjects: selectedSubjectId ? [selectedSubjectId] : [],
+        classes: selectedClasses,
+        topicId: initialTopicId || undefined,
+        status,
+        audioUrl: audioUrl || undefined,
+      });
+
       showSuccess(
         status === 'published' ? 'Lesson Published!' : 'Draft Saved',
-        `Lesson "${title}" has been ${status === 'published' ? 'published' : 'saved as draft'}. Audio and curriculum synced.`,
-        () => router.push('/lessons')
+        `Lesson "${title}" has been saved and linked across curriculum.`,
+        () => router.push(initialSubjectId ? `/subjects/${initialSubjectId}` : '/lessons')
       );
     } catch (err: any) {
-      showError('Error', err?.message || 'Failed to save lesson.');
+      showError('Error', err?.response?.data?.message || err?.message || 'Failed to save lesson.');
     } finally {
       setIsPublishing(false);
       setIsSavingDraft(false);
@@ -120,11 +174,11 @@ function NewLessonContent() {
         {/* Breadcrumb / Back button */}
         <div className="mb-4">
           <Link
-            href="/lessons"
+            href={initialSubjectId ? `/subjects/${initialSubjectId}` : '/lessons'}
             className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors"
           >
             <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
-            <span>Back to Lessons</span>
+            <span>{initialSubjectId ? 'Back to Subject' : 'Back to Lessons'}</span>
           </Link>
         </div>
 
@@ -147,6 +201,98 @@ function NewLessonContent() {
               error={errors.title}
               autoFocus
             />
+
+            {/* Curriculum Linking: Subject & Classes */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 sm:p-5 rounded-2xl bg-gray-50 border border-gray-200/80">
+              {/* Linked Subject */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5 text-[#0D6D62]" />
+                  <span>Curriculum Subject (Optional)</span>
+                </label>
+                <select
+                  value={selectedSubjectId}
+                  onChange={(e) => {
+                    const subId = e.target.value;
+                    setSelectedSubjectId(subId);
+                    const found = availableSubjects.find((s) => s._id === subId);
+                    if (found && found.classes && found.classes.length > 0) {
+                      // Automatically inherit linked classes from the subject
+                      setSelectedClasses(found.classes);
+                    }
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm focus:outline-none focus:border-[#0D6D62] bg-white cursor-pointer"
+                >
+                  <option value="">Standalone Lesson (Not tied to a specific subject)</option>
+                  {availableSubjects.map((s) => (
+                    <option key={s._id} value={s._id}>
+                      {s.name} {s.classLevel ? `(${s.classLevel})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-gray-400">
+                  Select a subject to automatically catalog this lesson under its syllabus topics.
+                </p>
+              </div>
+
+              {/* Linked Classes Multi-select */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                    <GraduationCap className="w-3.5 h-3.5 text-[#0D6D62]" />
+                    <span>Target Classes ({selectedClasses.length})</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedClasses(availableClasses.map((c) => c.name))}
+                      className="text-[11px] font-bold text-[#0D6D62] hover:underline cursor-pointer"
+                    >
+                      All
+                    </button>
+                    <span className="text-gray-300">•</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedClasses([])}
+                      className="text-[11px] font-bold text-gray-500 hover:underline cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                <div className="border border-gray-200 rounded-xl p-2.5 bg-white max-h-36 overflow-y-auto space-y-1.5">
+                  {availableClasses.length === 0 ? (
+                    <span className="text-xs text-gray-400">No classes registered</span>
+                  ) : (
+                    availableClasses.map((cls) => {
+                      const isChecked = selectedClasses.includes(cls.name);
+                      return (
+                        <label
+                          key={cls._id}
+                          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                            isChecked
+                              ? 'bg-[#E6F7F3] text-[#0D6D62] border border-[#A6E6D8]'
+                              : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleClass(cls.name)}
+                            className="w-3.5 h-3.5 text-[#0D6D62] rounded border-gray-300 focus:ring-[#0D6D62] cursor-pointer"
+                          />
+                          <span>{cls.name}</span>
+                          <span className="text-[10px] text-gray-400 font-normal ml-auto">
+                            {cls.category}
+                          </span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
 
             {/* Rich Editor Toolbar & Textarea matching Image 2 */}
             <div className="flex flex-col gap-1.5 text-left">

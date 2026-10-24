@@ -17,10 +17,18 @@ export interface SchoolClass {
 export interface SubjectLesson {
   _id: string;
   title: string;
-  topic: string;
+  topic?: string | any;
+  subjects?: (string | Subject)[];
+  classes?: string[];
   content?: string;
   duration?: string;
+  readTime?: number;
+  audioUrl?: string;
+  videoUrl?: string;
+  status?: 'published' | 'draft' | 'archived';
   isCompleted?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface SubjectTopic {
