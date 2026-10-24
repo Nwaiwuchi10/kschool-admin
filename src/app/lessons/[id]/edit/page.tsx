@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { FormulaToolbar } from '@/components/FormulaToolbar';
 import { MathRenderer } from '@/components/MathRenderer';
+import { WordPressEditor } from '@/components/WordPressEditor';
 
 function EditLessonContent() {
   const params = useParams();
@@ -69,12 +70,12 @@ function EditLessonContent() {
   const audioChunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const voiceNoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   // Attached Quiz / Assessment
   const [availableQuizzes, setAvailableQuizzes] = useState<any[]>([]);
   const [selectedQuizId, setSelectedQuizId] = useState<string>('');
-
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     async function loadLessonAndQuizzes() {
@@ -522,22 +523,24 @@ function EditLessonContent() {
               </div>
             </div>
 
-            {/* Lesson Content Textarea */}
+            {/* WordPress TinyMCE-Style Rich Editor matching provided screenshot */}
             <div className="flex flex-col gap-1.5 text-left">
               <div className="flex items-center justify-between mb-1">
-                <label className="text-sm font-semibold text-gray-800">Lesson Content</label>
+                <label className="text-sm font-semibold text-gray-800">
+                  Lesson Content <span className="text-red-500">*</span>
+                </label>
+                <span className="text-[11px] text-gray-400">
+                  Visual WYSIWYG / Text HTML & KaTeX formulas enabled
+                </span>
               </div>
 
-              {/* Universal Subject Formulas Palette */}
-              <FormulaToolbar onInsert={(snippet) => setContent((prev) => (prev ? prev + ' ' + snippet : snippet))} />
-
-              <textarea
-                rows={7}
+              <WordPressEditor
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
-                disabled={isSaving}
-                placeholder="Lesson content with formulas (e.g. $F = ma$, $\frac{a}{b}$, $\text{H}_2\text{O}$)..."
-                className="w-full p-4 rounded-2xl border border-gray-200 focus:border-[#127A71] focus:ring-2 focus:ring-[#127A71]/15 text-sm sm:text-base text-gray-900 bg-white transition-all outline-none resize-y font-sans"
+                onChange={(val) => setContent(val)}
+                placeholder="Lesson content with rich styling and formulas..."
+                onAddMedia={() => {
+                  imageInputRef.current?.click();
+                }}
               />
 
               {content && (
@@ -608,6 +611,7 @@ function EditLessonContent() {
               {/* Upload Drop Zone */}
               <label className="border-2 border-dashed border-gray-300 hover:border-[#0D6D62] rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer bg-gray-50/50 hover:bg-emerald-50/30 transition-all">
                 <input
+                  ref={imageInputRef}
                   type="file"
                   multiple
                   accept="image/png,image/jpeg,image/webp,image/gif"

@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { FormulaToolbar } from '@/components/FormulaToolbar';
 import { MathRenderer } from '@/components/MathRenderer';
+import { WordPressEditor } from '@/components/WordPressEditor';
 
 function NewLessonContent() {
   const router = useRouter();
@@ -80,6 +81,7 @@ function NewLessonContent() {
   const audioChunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const voiceNoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   // Attached Quiz / Exercise for this lesson
   const [availableQuizzes, setAvailableQuizzes] = useState<any[]>([]);
@@ -615,49 +617,25 @@ function NewLessonContent() {
               </div>
             </div>
 
-            {/* Rich Editor Toolbar & Textarea matching Image 2 */}
+            {/* WordPress TinyMCE-Style Rich Editor matching provided screenshot */}
             <div className="flex flex-col gap-1.5 text-left">
-              <label className="text-sm font-semibold text-gray-800">Lesson Content</label>
-
-              {/* Formatting Toolbar */}
-              <div className="flex items-center gap-1 p-2 bg-gray-50 border border-gray-200 border-b-0 rounded-t-xl text-gray-600">
-                <button
-                  type="button"
-                  onClick={() => setContent((prev) => prev + ' **bold** ')}
-                  className="p-1.5 hover:bg-white rounded-lg hover:text-gray-900 transition-colors"
-                  title="Bold"
-                >
-                  <Bold className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setContent((prev) => prev + ' *italic* ')}
-                  className="p-1.5 hover:bg-white rounded-lg hover:text-gray-900 transition-colors"
-                  title="Italic"
-                >
-                  <Italic className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setContent((prev) => prev + ' <u>underline</u> ')}
-                  className="p-1.5 hover:bg-white rounded-lg hover:text-gray-900 transition-colors"
-                  title="Underline"
-                >
-                  <Underline className="w-4 h-4" />
-                </button>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-semibold text-gray-800">
+                  Lesson Content <span className="text-red-500">*</span>
+                </label>
+                <span className="text-[11px] text-gray-400">
+                  Visual WYSIWYG / Text HTML & KaTeX formulas enabled
+                </span>
               </div>
 
-              {/* Universal Subject Formulas Palette */}
-              <div className="mt-3">
-                <FormulaToolbar onInsert={(snippet) => setContent((prev) => (prev ? prev + ' ' + snippet : snippet))} />
-              </div>
-
-              <textarea
-                rows={7}
-                placeholder="Write or paste lesson content here. Use the formula palette above or type $...$ for equations, fractions, chemistry symbols, and quantitative patterns..."
+              <WordPressEditor
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="w-full p-4 rounded-xl border border-gray-200 focus:border-[#127A71] focus:ring-2 focus:ring-[#127A71]/15 text-sm sm:text-base text-gray-900 placeholder:text-gray-400 bg-white transition-all outline-none resize-y"
+                onChange={(val) => setContent(val)}
+                placeholder="Write or paste lesson content here. Use the toolbar for bold, headings, alignment, lists, colors, YouTube videos, and KaTeX formulas..."
+                onAddMedia={() => {
+                  // Trigger image upload input
+                  imageInputRef.current?.click();
+                }}
               />
 
               {/* Universal KaTeX Math & Science Live Preview */}
@@ -748,6 +726,7 @@ function NewLessonContent() {
               {/* Upload Drop Zone */}
               <label className="border-2 border-dashed border-gray-300 hover:border-[#0D6D62] rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer bg-gray-50/50 hover:bg-emerald-50/30 transition-all">
                 <input
+                  ref={imageInputRef}
                   type="file"
                   multiple
                   accept="image/png,image/jpeg,image/webp,image/gif"
