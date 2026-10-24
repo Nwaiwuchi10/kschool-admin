@@ -243,11 +243,11 @@ export default function LessonsPage() {
 
                         <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
                           <span>{lesson.readTime || 5} min read</span>
-                          {lesson.audioUrl && (
+                          {/* {lesson.audioUrl && (
                             <span className="inline-flex items-center gap-1 text-teal-600 font-medium">
                               <Volume2 className="w-3.5 h-3.5" /> TTS Ready
                             </span>
-                          )}
+                          )} */}
                           {lesson.voiceNoteUrl && (
                             <span className="inline-flex items-center gap-1 text-purple-600 font-medium">
                               <Mic className="w-3.5 h-3.5" /> Voice Note

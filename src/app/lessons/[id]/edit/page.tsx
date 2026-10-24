@@ -556,7 +556,7 @@ function EditLessonContent() {
               )}
             </div>
 
-            {/* Audio Management Player Card matching Image 2 Screen 4 */}
+            {/* Audio Management Player Card (Commented out)
             <div className="p-4 sm:p-5 rounded-2xl bg-[#F0FDF4] border border-[#BBF7D0] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <button
@@ -589,6 +589,7 @@ function EditLessonContent() {
                 </button>
               </div>
             </div>
+            */}
 
             {/* 1. Multiple Images Upload (Cloudinary - Max 10MB each) */}
             <div className="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs space-y-4">

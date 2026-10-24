@@ -652,7 +652,7 @@ function NewLessonContent() {
               )}
             </div>
 
-            {/* Google Cloud Text-to-Speech Integration Box matching Mockup */}
+            {/* Google Cloud Text-to-Speech Integration Box (Commented out)
             <div className="p-5 rounded-2xl bg-[#F0FDF4] border border-[#BBF7D0] flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm font-bold text-[#127A71]">
@@ -664,7 +664,6 @@ function NewLessonContent() {
                 </span>
               </div>
 
-              {/* Voice Selector */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <label className="text-xs font-semibold text-gray-700 sm:w-28">Voice Model:</label>
                 <select
@@ -680,7 +679,6 @@ function NewLessonContent() {
                 </select>
               </div>
 
-              {/* Audio Controls */}
               <div className="flex items-center gap-3 pt-1">
                 <button
                   type="button"
@@ -704,6 +702,7 @@ function NewLessonContent() {
                 )}
               </div>
             </div>
+            */}
 
             {/* 1. Multiple Images Upload (Cloudinary - Max 10MB each) */}
             <div className="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs space-y-4">
