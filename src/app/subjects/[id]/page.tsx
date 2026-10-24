@@ -6,51 +6,136 @@ import Link from 'next/link';
 import AdminLayout from '@/components/layout/AdminLayout';
 import PrimaryButton from '@/components/ui/PrimaryButton';
 import { subjectService } from '@/services/subject.service';
-import { Subject, SubjectTopic } from '@/types/curriculum.types';
+import { classService } from '@/services/class.service';
+import { Subject, SubjectTopic, SchoolClass } from '@/types/curriculum.types';
 import { useResponseModal } from '@/context/ModalContext';
-import { ArrowLeft, BookOpen, CheckCircle, ChevronDown, ChevronRight, Layers, FileText } from 'lucide-react';
+import {
+  ArrowLeft,
+  BookOpen,
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  Layers,
+  FileText,
+  Edit,
+  Loader2,
+  Trash2,
+} from 'lucide-react';
 
 function SubjectDetailContent() {
   const params = useParams();
   const router = useRouter();
-  const { showError, showSuccess } = useResponseModal();
+  const { showError, showSuccess, showModal } = useResponseModal();
 
   const id = Array.isArray(params?.id) ? params.id[0] : params?.id || '';
 
   const [subject, setSubject] = useState<Subject | null>(null);
+  const [availableClasses, setAvailableClasses] = useState<SchoolClass[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
 
+  // Edit Subject state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editClasses, setEditClasses] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+
   useEffect(() => {
-    const fetchSubject = async () => {
+    async function loadClasses() {
       try {
-        let subj: Subject | null = null;
-        try {
-          subj = await subjectService.getSubjectById(id);
-        } catch {
-          const all = await subjectService.getSubjects();
-          subj = all.find((s) => s._id === id || s.name.toLowerCase() === id.toLowerCase()) || null;
-        }
-
-        if (subj) {
-          setSubject(subj);
-          if (subj.topics && subj.topics.length > 0) {
-            setExpandedTopic(subj.topics[0]._id || 'topic-0');
-          }
-        } else {
-          setSubject(null);
-        }
-      } catch (err: any) {
-        showError('Load Error', err?.message || 'Unable to fetch subject details.');
-      } finally {
-        setIsLoading(false);
+        const cls = await classService.getClasses();
+        if (cls && cls.length > 0) setAvailableClasses(cls);
+      } catch (err) {
+        console.warn('Failed to load classes for subject editor:', err);
       }
-    };
+    }
+    loadClasses();
+  }, []);
 
+  const fetchSubject = async () => {
+    try {
+      let subj: Subject | null = null;
+      try {
+        subj = await subjectService.getSubjectById(id);
+      } catch {
+        const all = await subjectService.getSubjects();
+        subj = all.find((s) => s._id === id || s.name.toLowerCase() === id.toLowerCase()) || null;
+      }
+
+      if (subj) {
+        setSubject(subj);
+        if (subj.topics && subj.topics.length > 0) {
+          setExpandedTopic(subj.topics[0]._id || 'topic-0');
+        }
+      } else {
+        setSubject(null);
+      }
+    } catch (err: any) {
+      showError('Load Error', err?.message || 'Unable to fetch subject details.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (id) {
       fetchSubject();
     }
   }, [id]);
+
+  const openEditModal = () => {
+    if (!subject) return;
+    setEditName(subject.name);
+    setEditDescription(subject.description || '');
+    const currentClasses =
+      Array.isArray(subject.classes) && subject.classes.length > 0
+        ? subject.classes
+        : subject.classLevel
+        ? [subject.classLevel]
+        : [];
+    setEditClasses(currentClasses);
+    setIsEditModalOpen(true);
+  };
+
+  const toggleEditClass = (className: string) => {
+    setEditClasses((prev) =>
+      prev.includes(className)
+        ? prev.filter((c) => c !== className)
+        : [...prev, className]
+    );
+  };
+
+  const handleUpdateSubject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subject) return;
+    const trimmed = editName.trim();
+    if (!trimmed) {
+      showError('Validation Error', 'Subject name is required.');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      await subjectService.updateSubject(subject._id, {
+        name: trimmed,
+        classes: editClasses,
+        classLevel: editClasses[0] || undefined,
+        description: editDescription.trim() || undefined,
+      });
+
+      setIsEditModalOpen(false);
+      showSuccess(
+        'Subject Updated',
+        `"${trimmed}" has been updated with ${editClasses.length} linked classes.`
+      );
+      await fetchSubject();
+    } catch (err: any) {
+      showError('Update Failed', err?.response?.data?.message || err?.message || 'Failed to update subject.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const topicsList = subject?.topics && subject.topics.length > 0
     ? subject.topics.map((t, idx) => {
@@ -107,7 +192,7 @@ function SubjectDetailContent() {
 
         {/* Header Title matching Screen 4 */}
         <div className="mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
                 {subject?.name || 'Subject Overview'}
@@ -117,28 +202,39 @@ function SubjectDetailContent() {
               </p>
             </div>
 
-            {/* Linked Classes Pills */}
-            <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
-              <span className="text-xs font-semibold text-gray-400 mr-1">Classes:</span>
-              {Array.isArray(subject?.classes) && subject.classes.length > 0 ? (
-                subject.classes.map((cls) => (
-                  <span
-                    key={cls}
-                    className="px-2.5 py-1 rounded-lg bg-[#E6F7F3] border border-[#A6E6D8] text-xs font-bold text-[#0D6D62]"
-                  >
-                    {cls}
-                  </span>
-                ))
-              ) : subject?.classLevel ? (
-                <span className="px-2.5 py-1 rounded-lg bg-gray-100 text-xs font-bold text-gray-700">
-                  {subject.classLevel}
-                </span>
-              ) : (
-                <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-xs font-semibold text-amber-700 border border-amber-200">
-                  Standalone (Not linked to any class)
-                </span>
-              )}
+            <div className="flex items-center gap-3 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={openEditModal}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0D6D62] hover:bg-[#0A5A51] text-white text-xs sm:text-sm font-semibold transition-all shadow-xs cursor-pointer"
+              >
+                <Edit className="w-4 h-4" />
+                <span>Edit Subject & Classes</span>
+              </button>
             </div>
+          </div>
+
+          {/* Linked Classes Pills */}
+          <div className="flex flex-wrap items-center gap-1.5 mt-4 pt-4 border-t border-gray-100">
+            <span className="text-xs font-semibold text-gray-400 mr-1">Linked Classes:</span>
+            {Array.isArray(subject?.classes) && subject.classes.length > 0 ? (
+              subject.classes.map((cls) => (
+                <span
+                  key={cls}
+                  className="px-2.5 py-1 rounded-lg bg-[#E6F7F3] border border-[#A6E6D8] text-xs font-bold text-[#0D6D62]"
+                >
+                  {cls}
+                </span>
+              ))
+            ) : subject?.classLevel ? (
+              <span className="px-2.5 py-1 rounded-lg bg-gray-100 text-xs font-bold text-gray-700">
+                {subject.classLevel}
+              </span>
+            ) : (
+              <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-xs font-semibold text-amber-700 border border-amber-200">
+                Standalone (Not linked to any class)
+              </span>
+            )}
           </div>
         </div>
 
@@ -216,6 +312,124 @@ function SubjectDetailContent() {
             );
           })}
         </div>
+
+        {/* Edit Subject & Linked Classes Modal */}
+        {isEditModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+            <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Edit Subject & Classes</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Update subject details and customize which school classes include this subject in their curriculum.
+                </p>
+              </div>
+
+              <form onSubmit={handleUpdateSubject} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Subject Name <span className="text-emerald-700">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#0D6D62] bg-[#FAFAFA]"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-gray-700">
+                      Link Classes <span className="text-gray-400 font-normal">(Select multiple)</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditClasses(availableClasses.map((c) => c.name))}
+                        className="text-xs font-bold text-[#0D6D62] hover:underline"
+                      >
+                        Select All
+                      </button>
+                      <span className="text-gray-300">•</span>
+                      <button
+                        type="button"
+                        onClick={() => setEditClasses([])}
+                        className="text-xs font-bold text-gray-500 hover:underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <div className="border border-gray-200 rounded-xl p-3 bg-[#FAFAFA] max-h-48 overflow-y-auto space-y-2">
+                    {availableClasses.length === 0 ? (
+                      <p className="text-xs text-gray-400">No classes registered.</p>
+                    ) : (
+                      availableClasses.map((cls) => {
+                        const isChecked = editClasses.includes(cls.name);
+                        return (
+                          <label
+                            key={cls._id}
+                            className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer text-xs font-semibold transition-all ${
+                              isChecked
+                                ? 'bg-[#E6F7F3] text-[#0D6D62] border border-[#A6E6D8]'
+                                : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => toggleEditClass(cls.name)}
+                              className="w-4 h-4 text-[#0D6D62] rounded border-gray-300 focus:ring-[#0D6D62] cursor-pointer"
+                            />
+                            <span>{cls.name}</span>
+                            <span className="text-[10px] text-gray-400 font-normal ml-auto">
+                              {cls.category}
+                            </span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    {editClasses.length} class{editClasses.length === 1 ? '' : 'es'} linked to this subject.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Description <span className="text-gray-400 font-normal">(Optional)</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#0D6D62] bg-[#FAFAFA] resize-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100">
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={() => setIsEditModalOpen(false)}
+                    className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-[#0D6D62] hover:bg-[#0A5A51] text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
+                  >
+                    {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );
