@@ -4,11 +4,11 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { useResponseModal } from '@/context/ModalContext';
-import { Plus, Search, FileEdit, Loader2 } from 'lucide-react';
+import { Plus, Search, FileEdit, Loader2, Trash2 } from 'lucide-react';
 import { exerciseService, Exercise } from '@/services/exercise.service';
 
 export default function ExercisesPage() {
-  const { showError } = useResponseModal();
+  const { showError, showSuccess, showModal } = useResponseModal();
   const [searchTerm, setSearchTerm] = useState('');
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -115,12 +115,50 @@ export default function ExercisesPage() {
                     </div>
                   </div>
 
-                  <Link
-                    href={`/exercises/${ex._id}`}
-                    className="px-3.5 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:border-[#0D6D62] hover:text-[#0D6D62] transition-colors"
-                  >
-                    View
-                  </Link>
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <Link
+                      href={`/exercises/${ex._id}`}
+                      className="px-3.5 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:border-[#0D6D62] hover:text-[#0D6D62] transition-colors"
+                    >
+                      View
+                    </Link>
+
+                    <Link
+                      href={`/exercises/${ex._id}/edit`}
+                      className="px-3 py-1.5 rounded-xl bg-gray-50 hover:bg-[#E6F7F3] text-gray-600 hover:text-[#0D6D62] text-xs font-bold transition-colors"
+                      title="Edit Exercise"
+                    >
+                      Edit
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        showModal({
+                          type: 'warning',
+                          title: 'Delete Exercise',
+                          message: `Are you sure you want to delete "${ex.title}"?`,
+                          confirmText: 'Yes, Delete',
+                          cancelText: 'Cancel',
+                          onConfirm: async () => {
+                            try {
+                              if (ex._id) {
+                                await exerciseService.deleteExercise(ex._id);
+                                showSuccess('Deleted', 'Exercise was removed.');
+                                fetchExercises();
+                              }
+                            } catch (err: any) {
+                              showError('Error', err?.message || 'Failed to delete exercise.');
+                            }
+                          },
+                        });
+                      }}
+                      className="p-1.5 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                      title="Delete Exercise"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
