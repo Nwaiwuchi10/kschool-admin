@@ -250,7 +250,7 @@ export default function LessonsPage() {
                           )} */}
                           {lesson.voiceNoteUrl && (
                             <span className="inline-flex items-center gap-1 text-purple-600 font-medium">
-                              <Mic className="w-3.5 h-3.5" /> Voice Note
+                              <Mic className="w-3.5 h-3.5" /> Teacher Explanation
                             </span>
                           )}
                           {Array.isArray(lesson.images) && lesson.images.length > 0 && (

@@ -41,6 +41,7 @@ interface WordPressEditorProps {
   onChange: (val: string) => void;
   placeholder?: string;
   onAddMedia?: () => void;
+  onInsertImage?: (url: string) => void;
 }
 
 export const WordPressEditor: React.FC<WordPressEditorProps> = ({
@@ -48,6 +49,7 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
   onChange,
   placeholder = 'Write or paste lesson content here...',
   onAddMedia,
+  onInsertImage,
 }) => {
   const [activeTab, setActiveTab] = useState<'visual' | 'text'>('visual');
   const [isFullscreen, setIsFullscreen] = useState(false);

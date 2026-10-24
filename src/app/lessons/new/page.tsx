@@ -128,19 +128,19 @@ function NewLessonContent() {
     );
   };
 
-  // Multiple Image Upload to Cloudinary (Max 10MB each)
+  // Multiple Image Upload to Cloudinary (Max 10MB each) - Inserts directly into lesson content
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     const fileList = Array.from(files);
-    // Validate file sizes (10MB maximum)
+    // Validate file sizes (10MB maximum for Cloudinary free image tier)
     const MAX_SIZE = 10 * 1024 * 1024;
     const oversized = fileList.filter((f) => f.size > MAX_SIZE);
     if (oversized.length > 0) {
       showError(
         'File Size Exceeded',
-        `Some files exceed the maximum 10MB limit (${oversized.map((f) => f.name).join(', ')}). Please select files under 10MB.`
+        `Some images exceed the maximum 10MB limit (${oversized.map((f) => f.name).join(', ')}). Please select images under 10MB.`
       );
       return;
     }
@@ -150,15 +150,24 @@ function NewLessonContent() {
       const res = await uploadService.uploadMultipleFiles(fileList, 'kschoolmate/lessons');
       const uploadedUrls = res.files.map((f) => f.url);
       setImages((prev) => [...prev, ...uploadedUrls]);
+
+      // Automatically embed uploaded images directly inside the lesson content
+      const imagesHtml = uploadedUrls
+        .map(
+          (url) =>
+            `<p><img src="${url}" alt="Lesson diagram" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);" /></p>`
+        )
+        .join('\n');
+      setContent((prev) => (prev ? prev + '\n' + imagesHtml : imagesHtml));
+
       showSuccess(
-        'Images Uploaded (Cloudinary)',
-        `Successfully uploaded ${res.count} image(s) to Cloudinary.`
+        'Images Inserted into Lesson',
+        `Successfully uploaded ${res.count} image(s) to Cloudinary and inserted them directly into your lesson notes.`
       );
     } catch (err: any) {
       showError('Upload Failed', err?.message || 'Failed to upload images to Cloudinary.');
     } finally {
       setIsUploadingImages(false);
-      // Reset input value so same files can be re-selected if desired
       e.target.value = '';
     }
   };
@@ -167,7 +176,38 @@ function NewLessonContent() {
     setImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
-  // Voice Note Recording
+  // Upload MP3 or Audio file for Teacher Explanation (Max 100MB)
+  const handleAudioFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate size (100MB Cloudinary media limit)
+    const MAX_AUDIO_SIZE = 100 * 1024 * 1024; // 100MB
+    if (file.size > MAX_AUDIO_SIZE) {
+      showError(
+        'Audio File Too Large',
+        `The selected audio file (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the maximum 100MB limit.`
+      );
+      return;
+    }
+
+    try {
+      setIsUploadingVoiceNote(true);
+      const uploadRes = await uploadService.uploadFile(file, 'kschoolmate/audio');
+      setVoiceNoteUrl(uploadRes.url);
+      showSuccess(
+        'Teacher Explanation Uploaded',
+        `MP3/Audio explanation "${file.name}" uploaded successfully to Cloudinary.`
+      );
+    } catch (err: any) {
+      showError('Audio Upload Failed', err?.message || 'Failed to upload MP3 file to Cloudinary.');
+    } finally {
+      setIsUploadingVoiceNote(false);
+      e.target.value = '';
+    }
+  };
+
+  // Voice Note Recording for Teacher Explanation
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -183,9 +223,9 @@ function NewLessonContent() {
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        // Check size (Max 10MB)
-        if (audioBlob.size > 10 * 1024 * 1024) {
-          showError('Voice Note Too Large', 'Voice note exceeds 10MB limit. Please record a shorter note.');
+        // Check size (Max 100MB)
+        if (audioBlob.size > 100 * 1024 * 1024) {
+          showError('Voice Note Too Large', 'Voice note exceeds 100MB limit. Please record a shorter note.');
           return;
         }
 
@@ -194,8 +234,8 @@ function NewLessonContent() {
           const uploadRes = await uploadService.uploadVoiceNote(audioBlob);
           setVoiceNoteUrl(uploadRes.url);
           showSuccess(
-            'Voice Note Saved (Cloudinary)',
-            'Voice note recorded and uploaded to Cloudinary successfully.'
+            'Teacher Explanation Saved',
+            'Teacher explanation recorded and uploaded to Cloudinary successfully.'
           );
         } catch (err: any) {
           showError('Voice Upload Failed', err?.message || 'Failed to upload recorded voice note to Cloudinary.');
@@ -774,25 +814,26 @@ function NewLessonContent() {
               )}
             </div>
 
-            {/* 2. Voice Note Recording per Lesson (Cloudinary - Max 10MB) */}
+            {/* 2. Teacher Explanation (Live Recording or MP3 Upload - Max 100MB) */}
             <div className="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                     <Mic className="w-4 h-4 text-[#0D6D62]" />
-                    <span>Teacher Voice Note Narration</span>
+                    <span>Teacher Explanation</span>
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Record live voice explanations for students or upload a recorded note.
+                    Record live voice explanations or upload an MP3 audio file for students.
                   </p>
                 </div>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-xs font-bold text-purple-700 self-start sm:self-auto">
                   <AlertCircle className="w-3.5 h-3.5" />
-                  <span>Max 10MB per voice note</span>
+                  <span>Max 100MB per audio file</span>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl bg-gray-50 border border-gray-200">
+                {/* Live Recording Button */}
                 {!isRecording ? (
                   <button
                     type="button"
@@ -801,7 +842,7 @@ function NewLessonContent() {
                     className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-60"
                   >
                     <Mic className="w-4 h-4" />
-                    <span>Start Recording Voice Note</span>
+                    <span>Record Explanation</span>
                   </button>
                 ) : (
                   <button
@@ -814,28 +855,41 @@ function NewLessonContent() {
                   </button>
                 )}
 
+                {/* Upload MP3 File Button */}
+                <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 text-xs font-bold transition-colors cursor-pointer shadow-xs">
+                  <Upload className="w-4 h-4 text-[#0D6D62]" />
+                  <span>Upload MP3 File</span>
+                  <input
+                    type="file"
+                    accept="audio/mp3,audio/mpeg,audio/wav,audio/m4a,audio/webm"
+                    onChange={handleAudioFileUpload}
+                    disabled={isUploadingVoiceNote}
+                    className="hidden"
+                  />
+                </label>
+
                 {isUploadingVoiceNote && (
                   <span className="text-xs font-semibold text-[#0D6D62] flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-[#0D6D62] border-t-transparent rounded-full animate-spin"></div>
-                    Uploading voice note to Cloudinary...
+                    Uploading Teacher Explanation to Cloudinary...
                   </span>
                 )}
 
                 {voiceNoteUrl && !isUploadingVoiceNote && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 ml-auto">
                     <button
                       type="button"
                       onClick={togglePlayVoiceNote}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-[#0D6D62] text-xs font-bold transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-[#0D6D62] text-xs font-bold transition-colors cursor-pointer"
                     >
                       {isPlayingVoiceNote ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                      <span>{isPlayingVoiceNote ? 'Pause Voice Note' : 'Listen to Voice Note'}</span>
+                      <span>{isPlayingVoiceNote ? 'Pause' : 'Listen to Teacher Explanation'}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setVoiceNoteUrl(null)}
-                      className="p-2 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                      title="Delete Voice Note"
+                      className="p-2 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                      title="Delete Teacher Explanation"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
