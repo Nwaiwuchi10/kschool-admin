@@ -104,34 +104,47 @@ function CreateExerciseContent() {
   // Load lessons dynamically whenever classLevel or subject changes
   useEffect(() => {
     async function fetchLessons() {
-      if (!classLevel) return;
       try {
         const foundSubj = subjects.find((s) => s.name === subject);
-        const lessonsData = await lessonService.getAllLessons({
-          classLevel,
-          subjectId: foundSubj?._id,
+        // First try filtering by class/subject
+        let lessonsData: any[] = [];
+        if (classLevel) {
+          lessonsData = await lessonService.getAllLessons({
+            classLevel,
+            subjectId: foundSubj?._id,
+          });
+        }
+
+        // If no lessons matched filter, fetch all lessons so teacher can link to any lesson
+        if (!Array.isArray(lessonsData) || lessonsData.length === 0) {
+          lessonsData = await lessonService.getAllLessons();
+        }
+
+        const formattedMap = new Map<string, { id: string; title: string }>();
+
+        if (Array.isArray(lessonsData)) {
+          lessonsData.forEach((l: any) => {
+            const id = l._id || l.id;
+            const title = l.title || 'Untitled Lesson';
+            if (id) {
+              formattedMap.set(id, { id, title });
+            }
+          });
+        }
+
+        // Also merge topic lessons from subject if any
+        foundSubj?.topics?.forEach((t: any) => {
+          t.lessons?.forEach((l: any) => {
+            if (typeof l === 'string') {
+              formattedMap.set(l, { id: l, title: l });
+            } else if (l?.title) {
+              const id = l._id || l.title;
+              formattedMap.set(id, { id, title: l.title });
+            }
+          });
         });
 
-        if (Array.isArray(lessonsData) && lessonsData.length > 0) {
-          const formatted = lessonsData.map((l: any) => ({
-            id: l._id || l.id,
-            title: l.title || 'Untitled Lesson',
-          }));
-          setAvailableLessons(formatted);
-        } else {
-          // Fallback to topic lessons if any
-          const topicLessons: Array<{ id: string; title: string }> = [];
-          foundSubj?.topics?.forEach((t: any) => {
-            t.lessons?.forEach((l: any) => {
-              if (typeof l === 'string') {
-                topicLessons.push({ id: l, title: l });
-              } else if (l?.title) {
-                topicLessons.push({ id: l._id || l.title, title: l.title });
-              }
-            });
-          });
-          setAvailableLessons(topicLessons);
-        }
+        setAvailableLessons(Array.from(formattedMap.values()));
       } catch (err) {
         console.warn('Failed to load lessons for exercise:', err);
         setAvailableLessons([]);
@@ -431,28 +444,22 @@ function CreateExerciseContent() {
                 <label className="block text-xs font-bold text-gray-700 mb-1">
                   Associated Lesson (Optional)
                 </label>
-                {availableLessons.length > 0 ? (
-                  <select
-                    value={lesson}
-                    onChange={(e) => setLesson(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#0D6D62] bg-white"
-                  >
-                    <option value="">-- None / Standalone --</option>
-                    {availableLessons.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.title}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    placeholder="e.g. Introduction to Variables or Lesson ID"
-                    value={lesson}
-                    onChange={(e) => setLesson(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#0D6D62] bg-[#FAFAFA]"
-                  />
-                )}
+                <select
+                  value={lesson}
+                  onChange={(e) => setLesson(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#0D6D62] bg-white cursor-pointer"
+                >
+                  <option value="">-- None / Standalone Exercise --</option>
+                  {availableLessons.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.title}
+                    </option>
+                  ))}
+                  {/* Keep current custom lesson selected if not in availableLessons list */}
+                  {lesson && !availableLessons.some((l) => l.id === lesson || l.title === lesson) && (
+                    <option value={lesson}>{lesson}</option>
+                  )}
+                </select>
               </div>
 
               <div>
