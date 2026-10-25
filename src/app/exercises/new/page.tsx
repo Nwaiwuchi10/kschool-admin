@@ -8,6 +8,7 @@ import PrimaryButton from '@/components/ui/PrimaryButton';
 import { exerciseService, ExerciseQuestion } from '@/services/exercise.service';
 import { classService } from '@/services/class.service';
 import { subjectService } from '@/services/subject.service';
+import { lessonService } from '@/services/lesson.service';
 import { SchoolClass, Subject } from '@/types/curriculum.types';
 import { useResponseModal } from '@/context/ModalContext';
 import { FormulaToolbar } from '@/components/FormulaToolbar';
@@ -44,7 +45,7 @@ function CreateExerciseContent() {
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [availableTopics, setAvailableTopics] = useState<string[]>([]);
-  const [availableLessons, setAvailableLessons] = useState<string[]>([]);
+  const [availableLessons, setAvailableLessons] = useState<Array<{ id: string; title: string }>>([]);
 
   // Questions state
   const [questions, setQuestions] = useState<ExerciseQuestion[]>([
@@ -85,7 +86,6 @@ function CreateExerciseContent() {
         setSubjects(subjs || []);
         if (subjs && subjs.length > 0) {
           setSubject(subjs[0].name);
-          // populate topics from first subject
           const topList = subjs[0].topics?.map((t) => t.title) || [];
           setAvailableTopics(topList);
           setTopic(topList[0] || '');
@@ -93,8 +93,6 @@ function CreateExerciseContent() {
           setSubject('');
           setAvailableTopics([]);
           setTopic('');
-          setAvailableLessons([]);
-          setLesson('');
         }
       } catch (err) {
         console.warn('Failed to load subjects for class:', err);
@@ -103,7 +101,46 @@ function CreateExerciseContent() {
     fetchSubjects();
   }, [classLevel]);
 
-  // Update topics and lessons when subject changes
+  // Load lessons dynamically whenever classLevel or subject changes
+  useEffect(() => {
+    async function fetchLessons() {
+      if (!classLevel) return;
+      try {
+        const foundSubj = subjects.find((s) => s.name === subject);
+        const lessonsData = await lessonService.getAllLessons({
+          classLevel,
+          subjectId: foundSubj?._id,
+        });
+
+        if (Array.isArray(lessonsData) && lessonsData.length > 0) {
+          const formatted = lessonsData.map((l: any) => ({
+            id: l._id || l.id,
+            title: l.title || 'Untitled Lesson',
+          }));
+          setAvailableLessons(formatted);
+        } else {
+          // Fallback to topic lessons if any
+          const topicLessons: Array<{ id: string; title: string }> = [];
+          foundSubj?.topics?.forEach((t: any) => {
+            t.lessons?.forEach((l: any) => {
+              if (typeof l === 'string') {
+                topicLessons.push({ id: l, title: l });
+              } else if (l?.title) {
+                topicLessons.push({ id: l._id || l.title, title: l.title });
+              }
+            });
+          });
+          setAvailableLessons(topicLessons);
+        }
+      } catch (err) {
+        console.warn('Failed to load lessons for exercise:', err);
+        setAvailableLessons([]);
+      }
+    }
+    fetchLessons();
+  }, [classLevel, subject, subjects]);
+
+  // Update topics when subject changes
   const handleSubjectChange = (newSubjectName: string) => {
     setSubject(newSubjectName);
     const foundSubj = subjects.find((s) => s.name === newSubjectName);
@@ -111,31 +148,15 @@ function CreateExerciseContent() {
       const topList = foundSubj.topics.map((t) => t.title);
       setAvailableTopics(topList);
       setTopic(topList[0] || '');
-      const firstTopic = foundSubj.topics[0];
-      const lesList = firstTopic.lessons?.map((l: any) => (typeof l === 'string' ? l : l.title)) || [];
-      setAvailableLessons(lesList);
-      setLesson(lesList[0] || '');
     } else {
       setAvailableTopics([]);
       setTopic('');
-      setAvailableLessons([]);
-      setLesson('');
     }
   };
 
-  // Update lessons when topic changes
+  // Update topic
   const handleTopicChange = (newTopicTitle: string) => {
     setTopic(newTopicTitle);
-    const foundSubj = subjects.find((s) => s.name === subject);
-    const foundTopic = foundSubj?.topics?.find((t) => t.title === newTopicTitle);
-    if (foundTopic && foundTopic.lessons) {
-      const lesList = foundTopic.lessons.map((l: any) => (typeof l === 'string' ? l : l.title));
-      setAvailableLessons(lesList);
-      setLesson(lesList[0] || '');
-    } else {
-      setAvailableLessons([]);
-      setLesson('');
-    }
   };
 
   // Add question
@@ -417,16 +438,16 @@ function CreateExerciseContent() {
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#0D6D62] bg-white"
                   >
                     <option value="">-- None / Standalone --</option>
-                    {availableLessons.map((l, idx) => (
-                      <option key={idx} value={l}>
-                        {l}
+                    {availableLessons.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.title}
                       </option>
                     ))}
                   </select>
                 ) : (
                   <input
                     type="text"
-                    placeholder="e.g. Introduction to Variables"
+                    placeholder="e.g. Introduction to Variables or Lesson ID"
                     value={lesson}
                     onChange={(e) => setLesson(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#0D6D62] bg-[#FAFAFA]"
