@@ -130,14 +130,14 @@ function EditLessonContent() {
       const uploadedUrls = res.files.map((f) => f.url);
       setImages((prev) => [...prev, ...uploadedUrls]);
 
-      // Automatically embed uploaded images directly inside the lesson content
+      // Automatically embed uploaded images directly inside the lesson content as compact cards with delete button
       const imagesHtml = uploadedUrls
         .map(
           (url) =>
-            `<p><img src="${url}" alt="Lesson diagram" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);" /></p>`
+            `<span class="lesson-inline-img-wrapper" contenteditable="false" style="display: inline-block; position: relative; margin: 8px 10px 8px 0; vertical-align: top; max-width: 200px; border-radius: 10px; overflow: hidden; border: 1px solid #E5E7EB; box-shadow: 0 1px 3px rgba(0,0,0,0.08); background: #FAFAFA;"><img src="${url}" alt="Lesson diagram" style="display: block; width: 100%; max-height: 140px; object-fit: contain; background: #FFF;" /><button type="button" class="img-delete-btn" title="Delete image from content" style="position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; background: rgba(220,38,38,0.9); color: white; border-radius: 9999px; border: none; font-size: 13px; font-weight: bold; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.25);">✕</button></span> `
         )
-        .join('\n');
-      setContent((prev) => (prev ? prev + '\n' + imagesHtml : imagesHtml));
+        .join(' ');
+      setContent((prev) => (prev ? prev + ' ' + imagesHtml : imagesHtml));
 
       showSuccess(
         'Images Inserted into Lesson',
@@ -689,8 +689,8 @@ function EditLessonContent() {
                         <button
                           type="button"
                           onClick={() => {
-                            const imgSnippet = `<p><img src="${url}" alt="Lesson diagram" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);" /></p><p></p>`;
-                            setContent((prev) => (prev ? prev + '\n' + imgSnippet : imgSnippet));
+                            const imgSnippet = `<span class="lesson-inline-img-wrapper" contenteditable="false" style="display: inline-block; position: relative; margin: 8px 10px 8px 0; vertical-align: top; max-width: 200px; border-radius: 10px; overflow: hidden; border: 1px solid #E5E7EB; box-shadow: 0 1px 3px rgba(0,0,0,0.08); background: #FAFAFA;"><img src="${url}" alt="Lesson diagram" style="display: block; width: 100%; max-height: 140px; object-fit: contain; background: #FFF;" /><button type="button" class="img-delete-btn" title="Delete image from content" style="position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; background: rgba(220,38,38,0.9); color: white; border-radius: 9999px; border: none; font-size: 13px; font-weight: bold; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.25);">✕</button></span> `;
+                            setContent((prev) => (prev ? prev + ' ' + imgSnippet : imgSnippet));
                             showSuccess('Image Inserted', 'Diagram added to lesson content.');
                           }}
                           className="px-2.5 py-1 rounded-lg bg-[#0D6D62] hover:bg-[#0A5A51] text-white text-[11px] font-bold shadow-xs cursor-pointer"

@@ -264,22 +264,16 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
     setShowYoutubeModal(false);
   };
 
-  // Embed Image into Content
+  // Embed Image into Content as compact card with delete button
   const handleInsertImageModal = (e: React.FormEvent) => {
     e.preventDefault();
     if (!mediaImageUrl.trim()) return;
 
     const captionHtml = mediaImageCaption.trim()
-      ? `<figcaption style="text-align: center; font-size: 12px; color: #64748B; margin-top: 6px;">${mediaImageCaption.trim()}</figcaption>`
+      ? `<span style="display: block; text-align: center; font-size: 11px; color: #64748B; padding: 2px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${mediaImageCaption.trim()}</span>`
       : '';
 
-    const imgHtml = `
-<figure style="margin: 18px 0; text-align: center;">
-  <img src="${mediaImageUrl.trim()}" alt="${mediaImageCaption.trim() || 'Lesson diagram'}" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin: 0 auto;" />
-  ${captionHtml}
-</figure>
-<p></p>
-`;
+    const imgHtml = `<span class="lesson-inline-img-wrapper" contenteditable="false" style="display: inline-block; position: relative; margin: 8px 10px 8px 0; vertical-align: top; max-width: 200px; border-radius: 10px; overflow: hidden; border: 1px solid #E5E7EB; box-shadow: 0 1px 3px rgba(0,0,0,0.08); background: #FAFAFA;"><img src="${mediaImageUrl.trim()}" alt="${mediaImageCaption.trim() || 'Lesson diagram'}" style="display: block; width: 100%; max-height: 140px; object-fit: contain; background: #FFF;" /><button type="button" class="img-delete-btn" title="Delete image from content" style="position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; background: rgba(220,38,38,0.9); color: white; border-radius: 9999px; border: none; font-size: 13px; font-weight: bold; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.25);">✕</button>${captionHtml}</span> `;
     insertHtmlSnippet(imgHtml);
     setMediaImageUrl('');
     setMediaImageCaption('');
@@ -1106,6 +1100,22 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
             onBlur={handleVisualInput}
             onKeyUp={saveSelection}
             onMouseUp={saveSelection}
+            onClick={(e) => {
+              const target = e.target as HTMLElement;
+              // Check if delete button or inside delete button was clicked
+              if (
+                target.classList.contains('img-delete-btn') ||
+                target.closest('.img-delete-btn')
+              ) {
+                e.preventDefault();
+                e.stopPropagation();
+                const wrapper = target.closest('.lesson-inline-img-wrapper') || target.parentElement;
+                if (wrapper && visualEditorRef.current?.contains(wrapper)) {
+                  wrapper.remove();
+                  handleVisualInput();
+                }
+              }
+            }}
             data-placeholder={placeholder}
             className="w-full min-h-[280px] outline-none text-gray-900 leading-relaxed font-sans text-sm sm:text-base selection:bg-emerald-100 empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 prose max-w-none"
             style={{ minHeight: isFullscreen ? '70vh' : '280px' }}
