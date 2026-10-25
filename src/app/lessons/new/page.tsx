@@ -797,15 +797,29 @@ function NewLessonContent() {
                         alt={`Lesson visual ${idx + 1}`}
                         className="w-full h-full object-cover"
                       />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImage(idx)}
-                        className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-red-600/90 hover:bg-red-700 text-white shadow-xs opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                        title="Remove image"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-bold text-white">
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const imgSnippet = `<p><img src="${url}" alt="Lesson diagram" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);" /></p><p></p>`;
+                            setContent((prev) => (prev ? prev + '\n' + imgSnippet : imgSnippet));
+                            showSuccess('Image Inserted', 'Diagram added to lesson content.');
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-[#0D6D62] hover:bg-[#0A5A51] text-white text-[11px] font-bold shadow-xs cursor-pointer"
+                          title="Insert image into lesson content"
+                        >
+                          Insert
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage(idx)}
+                          className="p-1 rounded-lg bg-red-600/90 hover:bg-red-700 text-white shadow-xs cursor-pointer"
+                          title="Remove image"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-bold text-white group-hover:hidden">
                         Cloudinary #{idx + 1}
                       </span>
                     </div>

@@ -24,18 +24,13 @@ import {
   Maximize2,
   Minimize2,
   HelpCircle,
-  Code,
-  Table,
+  Table as TableIcon,
   ChevronDown,
   Palette,
   FileText,
-  CornerDownLeft,
   X,
-  Plus,
   Highlighter,
-  Subscript,
-  Superscript,
-  Check,
+  Plus,
 } from 'lucide-react';
 import { FormulaToolbar } from './FormulaToolbar';
 
@@ -46,6 +41,28 @@ interface WordPressEditorProps {
   onAddMedia?: () => void;
   onInsertImage?: (url: string) => void;
 }
+
+// Preset colors matching WordPress TinyMCE palette
+const TEXT_COLORS = [
+  { name: 'Default Dark', color: '#1F2937' },
+  { name: 'Odysey Teal', color: '#0D6D62' },
+  { name: 'Navy Blue', color: '#1E40AF' },
+  { name: 'Emerald Green', color: '#047857' },
+  { name: 'Ruby Red', color: '#DC2626' },
+  { name: 'Amber Orange', color: '#D97706' },
+  { name: 'Royal Purple', color: '#7E22CE' },
+  { name: 'Muted Gray', color: '#6B7280' },
+];
+
+const HIGHLIGHT_COLORS = [
+  { name: 'Pastel Yellow', color: '#FEF08A' },
+  { name: 'Light Mint', color: '#A7F3D0' },
+  { name: 'Soft Sky', color: '#BAE6FD' },
+  { name: 'Warm Peach', color: '#FED7AA' },
+  { name: 'Lavender', color: '#E9D5FF' },
+  { name: 'Soft Rose', color: '#FECDD3' },
+  { name: 'None (Transparent)', color: 'transparent' },
+];
 
 export const WordPressEditor: React.FC<WordPressEditorProps> = ({
   value,
@@ -67,15 +84,20 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
   const [showShortcodeMenu, setShowShortcodeMenu] = useState(false);
   const [showFormatDropdown, setShowFormatDropdown] = useState(false);
   const [currentBlockFormat, setCurrentBlockFormat] = useState('Paragraph');
+  const [showTextColorPicker, setShowTextColorPicker] = useState(false);
+  const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const [textColor, setTextColor] = useState('#0D6D62');
   const [highlightColor, setHighlightColor] = useState('#FEF08A');
   const [showSpecialCharModal, setShowSpecialCharModal] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [mediaImageUrl, setMediaImageUrl] = useState('');
+  const [mediaImageCaption, setMediaImageCaption] = useState('');
 
   const visualEditorRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const savedSelectionRange = useRef<Range | null>(null);
 
-  // Sync value into visual contentEditable div when value changes externally
+  // Sync external value to visual editor when not actively typing
   useEffect(() => {
     if (visualEditorRef.current && activeTab === 'visual') {
       if (visualEditorRef.current.innerHTML !== (value || '')) {
@@ -84,18 +106,25 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
     }
   }, [value, activeTab]);
 
-  // Keep saved selection range so buttons don't lose focus
+  // Keep saved selection range so toolbar clicks don't lose the cursor/selection
   const saveSelection = () => {
-    if (window.getSelection) {
+    if (typeof window !== 'undefined' && window.getSelection) {
       const sel = window.getSelection();
       if (sel && sel.rangeCount > 0) {
-        savedSelectionRange.current = sel.getRangeAt(0);
+        const range = sel.getRangeAt(0);
+        // Only save if inside visualEditorRef
+        if (
+          visualEditorRef.current &&
+          visualEditorRef.current.contains(range.commonAncestorContainer)
+        ) {
+          savedSelectionRange.current = range.cloneRange();
+        }
       }
     }
   };
 
   const restoreSelection = () => {
-    if (savedSelectionRange.current && window.getSelection) {
+    if (savedSelectionRange.current && typeof window !== 'undefined' && window.getSelection) {
       const sel = window.getSelection();
       if (sel) {
         sel.removeAllRanges();
@@ -107,11 +136,46 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
   const handleVisualInput = () => {
     if (visualEditorRef.current) {
       onChange(visualEditorRef.current.innerHTML);
+      saveSelection();
     }
   };
 
-  // Robust command executor supporting both Visual WYSIWYG & HTML/Markdown Text mode
-  const executeCommand = (command: string, arg: string | undefined = undefined) => {
+  // Helper to insert HTML snippet safely into Visual contentEditable or Text textarea
+  const insertHtmlSnippet = (html: string) => {
+    if (activeTab === 'visual') {
+      if (visualEditorRef.current) {
+        visualEditorRef.current.focus();
+        restoreSelection();
+      }
+      try {
+        document.execCommand('insertHTML', false, html);
+      } catch {
+        // Fallback for document.execCommand
+        if (visualEditorRef.current) {
+          visualEditorRef.current.innerHTML += html;
+        }
+      }
+      if (visualEditorRef.current) {
+        onChange(visualEditorRef.current.innerHTML);
+      }
+    } else if (textareaRef.current) {
+      const textarea = textareaRef.current;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const val = textarea.value || '';
+      const newContent = val.substring(0, start) + html + val.substring(end);
+      onChange(newContent);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + html.length, start + html.length);
+      }, 0);
+    } else {
+      onChange((value || '') + '\n' + html);
+    }
+  };
+
+  // Universal command executor supporting both Visual WYSIWYG & HTML Text mode
+  const executeCommand = (command: string, arg?: string) => {
     if (activeTab === 'visual') {
       if (visualEditorRef.current) {
         visualEditorRef.current.focus();
@@ -119,18 +183,27 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
       }
 
       if (command === 'formatBlock' && arg) {
-        document.execCommand('formatBlock', false, `<${arg}>`);
+        // Cross-browser formatBlock support: Try standard tag name first, then <tag>
+        const formatted = document.execCommand('formatBlock', false, arg);
+        if (!formatted) {
+          document.execCommand('formatBlock', false, `<${arg}>`);
+        }
+      } else if (command === 'foreColor' && arg) {
+        document.execCommand('foreColor', false, arg);
       } else if (command === 'hiliteColor' && arg) {
-        // Fallback for background highlight color
         if (!document.execCommand('hiliteColor', false, arg)) {
           document.execCommand('backColor', false, arg);
         }
+      } else if (command === 'removeFormat') {
+        document.execCommand('removeFormat', false, undefined);
+        document.execCommand('unlink', false, undefined);
       } else {
         document.execCommand(command, false, arg);
       }
 
       if (visualEditorRef.current) {
         onChange(visualEditorRef.current.innerHTML);
+        saveSelection();
       }
     } else if (textareaRef.current) {
       const textarea = textareaRef.current;
@@ -153,15 +226,23 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
       else if (command === 'justifyFull') replacement = `<div style="text-align: justify;">${selectedText || 'Justified text'}</div>`;
       else if (command === 'foreColor' && arg) replacement = `<span style="color: ${arg};">${selectedText || 'colored text'}</span>`;
       else if (command === 'hiliteColor' && arg) replacement = `<mark style="background-color: ${arg}; padding: 2px 4px; border-radius: 4px;">${selectedText || 'highlighted text'}</mark>`;
-      else if (command === 'insertText' && arg) replacement = arg;
+      else if (command === 'removeFormat') replacement = selectedText.replace(/<[^>]*>/g, '');
+      else if (command === 'unlink') replacement = selectedText.replace(/<\/?a[^>]*>/gi, '');
+      else if (command === 'indent') replacement = `<blockquote>${selectedText || 'Indented text'}</blockquote>`;
+      else if (command === 'outdent') replacement = selectedText;
       else replacement = selectedText;
 
       const newContent =
         textarea.value.substring(0, start) + replacement + textarea.value.substring(end);
       onChange(newContent);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + replacement.length, start + replacement.length);
+      }, 0);
     }
   };
 
+  // Embed YouTube Video Player
   const handleInsertYoutube = (e: React.FormEvent) => {
     e.preventDefault();
     if (!youtubeUrl.trim()) return;
@@ -178,98 +259,100 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
 </div>
 <p></p>
 `;
-
-    if (activeTab === 'visual') {
-      if (visualEditorRef.current) {
-        visualEditorRef.current.focus();
-        restoreSelection();
-      }
-      document.execCommand('insertHTML', false, iframeHtml);
-      if (visualEditorRef.current) {
-        onChange(visualEditorRef.current.innerHTML);
-      }
-    } else {
-      onChange((value || '') + '\n' + iframeHtml);
-    }
-
+    insertHtmlSnippet(iframeHtml);
     setYoutubeUrl('');
     setShowYoutubeModal(false);
   };
 
+  // Embed Image into Content
+  const handleInsertImageModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mediaImageUrl.trim()) return;
+
+    const captionHtml = mediaImageCaption.trim()
+      ? `<figcaption style="text-align: center; font-size: 12px; color: #64748B; margin-top: 6px;">${mediaImageCaption.trim()}</figcaption>`
+      : '';
+
+    const imgHtml = `
+<figure style="margin: 18px 0; text-align: center;">
+  <img src="${mediaImageUrl.trim()}" alt="${mediaImageCaption.trim() || 'Lesson diagram'}" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin: 0 auto;" />
+  ${captionHtml}
+</figure>
+<p></p>
+`;
+    insertHtmlSnippet(imgHtml);
+    setMediaImageUrl('');
+    setMediaImageCaption('');
+    setShowImageModal(false);
+  };
+
+  // Insert Link Modal
   const handleInsertLink = (e: React.FormEvent) => {
     e.preventDefault();
     if (!linkUrl.trim()) return;
 
     const linkHtml = `<a href="${linkUrl.trim()}" target="_blank" rel="noopener noreferrer" style="color: #0D6D62; font-weight: 600; text-decoration: underline;">${linkText.trim() || linkUrl.trim()}</a> `;
-
-    if (activeTab === 'visual') {
-      if (visualEditorRef.current) {
-        visualEditorRef.current.focus();
-        restoreSelection();
-      }
-      document.execCommand('insertHTML', false, linkHtml);
-      if (visualEditorRef.current) {
-        onChange(visualEditorRef.current.innerHTML);
-      }
-    } else {
-      onChange((value || '') + ' ' + linkHtml);
-    }
-
+    insertHtmlSnippet(linkHtml);
     setLinkUrl('');
     setLinkText('');
     setShowLinkModal(false);
   };
 
+  // Insert Shortcode snippets
   const insertShortcode = (code: string) => {
     let htmlSnippet = '';
     if (code.includes('highlight')) {
       htmlSnippet = `<span style="background-color: #FEF08A; padding: 2px 6px; border-radius: 4px; font-weight: 600;">Highlighted Lesson Point</span> `;
     } else if (code.includes('alert')) {
-      htmlSnippet = `<div style="background-color: #F0FDF4; border-left: 4px solid #0D6D62; padding: 14px 18px; border-radius: 8px; margin: 16px 0; color: #064E3B;"><strong>Key Takeaway:</strong> Enter important summary notes here...</div><p></p>`;
+      htmlSnippet = `<div style="background-color: #F0FDF4; border-left: 4px solid #0D6D62; padding: 14px 18px; border-radius: 8px; margin: 16px 0; color: #064E3B;"><strong>💡 Key Takeaway:</strong> Enter important summary notes here...</div><p></p>`;
     } else if (code.includes('practice_worksheet')) {
       htmlSnippet = `<div style="background-color: #F8FAFC; border: 1.5px dashed #0D6D62; border-radius: 12px; padding: 18px; margin: 20px 0; text-align: center;"><strong style="color: #0D6D62;">📝 Student Practice Drill</strong><p style="margin: 6px 0; color: #475569; font-size: 13px;">Complete the attached interactive exercises after studying this lesson topic.</p></div><p></p>`;
     } else {
       htmlSnippet = `<span>${code}</span> `;
     }
 
-    if (activeTab === 'visual') {
-      if (visualEditorRef.current) {
-        visualEditorRef.current.focus();
-        restoreSelection();
-      }
-      document.execCommand('insertHTML', false, htmlSnippet);
-      if (visualEditorRef.current) onChange(visualEditorRef.current.innerHTML);
-    } else {
-      onChange((value || '') + '\n' + htmlSnippet + '\n');
-    }
+    insertHtmlSnippet(htmlSnippet);
     setShowShortcodeMenu(false);
   };
 
+  // Insert Raw LaTeX Formula without code tag wrapper
   const insertFormula = (snippet: string) => {
-    if (activeTab === 'visual') {
-      if (visualEditorRef.current) {
-        visualEditorRef.current.focus();
-        restoreSelection();
-      }
-      document.execCommand('insertHTML', false, `<code>${snippet}</code> `);
-      if (visualEditorRef.current) onChange(visualEditorRef.current.innerHTML);
-    } else {
-      onChange((value || '') + (value ? ' ' : '') + snippet);
-    }
+    insertHtmlSnippet(` ${snippet} `);
   };
 
+  // Insert Special Unicode Character
   const insertSpecialCharacter = (char: string) => {
-    if (activeTab === 'visual') {
-      if (visualEditorRef.current) {
-        visualEditorRef.current.focus();
-        restoreSelection();
-      }
-      document.execCommand('insertText', false, char);
-      if (visualEditorRef.current) onChange(visualEditorRef.current.innerHTML);
-    } else {
-      onChange((value || '') + char);
-    }
+    insertHtmlSnippet(char);
     setShowSpecialCharModal(false);
+  };
+
+  // Insert Standard Table
+  const insertTable = () => {
+    const tableHtml = `
+<table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
+  <thead>
+    <tr style="background-color: #F3F4F6;">
+      <th style="border: 1px solid #D1D5DB; padding: 8px 12px; text-align: left; font-weight: 600;">Header 1</th>
+      <th style="border: 1px solid #D1D5DB; padding: 8px 12px; text-align: left; font-weight: 600;">Header 2</th>
+      <th style="border: 1px solid #D1D5DB; padding: 8px 12px; text-align: left; font-weight: 600;">Header 3</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="border: 1px solid #D1D5DB; padding: 8px 12px;">Row 1 Item</td>
+      <td style="border: 1px solid #D1D5DB; padding: 8px 12px;">Description</td>
+      <td style="border: 1px solid #D1D5DB; padding: 8px 12px;">Value</td>
+    </tr>
+    <tr>
+      <td style="border: 1px solid #D1D5DB; padding: 8px 12px;">Row 2 Item</td>
+      <td style="border: 1px solid #D1D5DB; padding: 8px 12px;">Description</td>
+      <td style="border: 1px solid #D1D5DB; padding: 8px 12px;">Value</td>
+    </tr>
+  </tbody>
+</table>
+<p></p>
+`;
+    insertHtmlSnippet(tableHtml);
   };
 
   return (
@@ -295,11 +378,8 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
               if (onAddMedia) {
                 onAddMedia();
               } else {
-                const url = prompt('Enter Image URL to embed into content:');
-                if (url) {
-                  const imgHtml = `<p><img src="${url}" alt="Lesson diagram" style="max-width: 100%; height: auto; border-radius: 12px; margin: 16px 0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);" /></p><p></p>`;
-                  executeCommand('insertHTML', imgHtml);
-                }
+                saveSelection();
+                setShowImageModal(true);
               }
             }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-800 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 active:bg-gray-100 shadow-2xs transition-colors cursor-pointer"
@@ -308,6 +388,24 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
             <span className="text-[#0D6D62] text-sm">🎵</span>
             <ImageIcon className="w-3.5 h-3.5 text-gray-700" />
             <span>Add Media</span>
+          </button>
+
+          {/* Direct URL Image Embed Button */}
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              saveSelection();
+            }}
+            onClick={() => {
+              saveSelection();
+              setShowImageModal(true);
+            }}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 active:bg-gray-100 shadow-2xs transition-colors cursor-pointer"
+            title="Embed image via Web URL or diagram link"
+          >
+            <Plus className="w-3 h-3 text-[#0D6D62]" />
+            <span>Image URL</span>
           </button>
 
           {/* Add Practice Form Shortcode */}
@@ -362,7 +460,9 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
         <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-gray-200/80 p-0.5">
           <button
             type="button"
-            onClick={() => setActiveTab('visual')}
+            onClick={() => {
+              setActiveTab('visual');
+            }}
             className={`px-3 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${
               activeTab === 'visual'
                 ? 'bg-white text-gray-900 shadow-2xs'
@@ -373,7 +473,9 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('text')}
+            onClick={() => {
+              setActiveTab('text');
+            }}
             className={`px-3 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${
               activeTab === 'text'
                 ? 'bg-white text-gray-900 shadow-2xs'
@@ -414,7 +516,7 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
                   setCurrentBlockFormat('Paragraph');
                   setShowFormatDropdown(false);
                 }}
-                className="w-full text-left px-3 py-1.5 hover:bg-gray-100 font-normal"
+                className="w-full text-left px-3 py-1.5 hover:bg-gray-100 font-normal cursor-pointer"
               >
                 Paragraph
               </button>
@@ -426,7 +528,7 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
                   setCurrentBlockFormat('Heading 1');
                   setShowFormatDropdown(false);
                 }}
-                className="w-full text-left px-3 py-1.5 hover:bg-gray-100 font-bold text-base"
+                className="w-full text-left px-3 py-1.5 hover:bg-gray-100 font-bold text-base cursor-pointer"
               >
                 Heading 1
               </button>
@@ -438,7 +540,7 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
                   setCurrentBlockFormat('Heading 2');
                   setShowFormatDropdown(false);
                 }}
-                className="w-full text-left px-3 py-1.5 hover:bg-gray-100 font-bold text-sm"
+                className="w-full text-left px-3 py-1.5 hover:bg-gray-100 font-bold text-sm cursor-pointer"
               >
                 Heading 2
               </button>
@@ -450,7 +552,7 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
                   setCurrentBlockFormat('Heading 3');
                   setShowFormatDropdown(false);
                 }}
-                className="w-full text-left px-3 py-1.5 hover:bg-gray-100 font-bold text-xs"
+                className="w-full text-left px-3 py-1.5 hover:bg-gray-100 font-bold text-xs cursor-pointer"
               >
                 Heading 3
               </button>
@@ -462,7 +564,7 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
                   setCurrentBlockFormat('Preformatted');
                   setShowFormatDropdown(false);
                 }}
-                className="w-full text-left px-3 py-1.5 hover:bg-gray-100 font-mono text-[11px]"
+                className="w-full text-left px-3 py-1.5 hover:bg-gray-100 font-mono text-[11px] cursor-pointer"
               >
                 Preformatted
               </button>
@@ -612,7 +714,7 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
           type="button"
           onMouseDown={(e) => {
             e.preventDefault();
-            executeCommand('insertHTML', '<!--more--><hr style="border: 0; border-top: 2px dashed #9CA3AF; margin: 20px 0;" /><p></p>');
+            insertHtmlSnippet('<!--more--><hr style="border: 0; border-top: 2px dashed #9CA3AF; margin: 20px 0;" /><p></p>');
           }}
           className="p-1.5 bg-white border border-gray-300 rounded hover:bg-gray-100 text-gray-800 cursor-pointer font-mono font-bold text-[10px] shadow-2xs"
           title="Insert Read More tag"
@@ -657,7 +759,7 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
                   e.preventDefault();
                   insertShortcode('[highlight]');
                 }}
-                className="w-full text-left px-3 py-1.5 hover:bg-gray-100"
+                className="w-full text-left px-3 py-1.5 hover:bg-gray-100 cursor-pointer"
               >
                 Highlight Lesson Point
               </button>
@@ -667,7 +769,7 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
                   e.preventDefault();
                   insertShortcode('[alert]');
                 }}
-                className="w-full text-left px-3 py-1.5 hover:bg-gray-100"
+                className="w-full text-left px-3 py-1.5 hover:bg-gray-100 cursor-pointer"
               >
                 Summary / Alert Box
               </button>
@@ -677,7 +779,7 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
                   e.preventDefault();
                   insertShortcode('[practice_worksheet]');
                 }}
-                className="w-full text-left px-3 py-1.5 hover:bg-gray-100"
+                className="w-full text-left px-3 py-1.5 hover:bg-gray-100 cursor-pointer"
               >
                 Practice Drill Box
               </button>
@@ -755,38 +857,137 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
 
           <span className="w-px h-5 bg-gray-300 mx-0.5" />
 
-          {/* Text Color Picker */}
-          <div className="flex items-center gap-1 bg-white border border-gray-300 rounded px-1.5 py-1 shadow-2xs">
-            <span className="font-bold underline text-xs" style={{ color: textColor }}>
-              A
-            </span>
-            <input
-              type="color"
-              value={textColor}
-              onMouseDown={() => saveSelection()}
-              onChange={(e) => {
-                setTextColor(e.target.value);
-                executeCommand('foreColor', e.target.value);
+          {/* Table Insertion */}
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              insertTable();
+            }}
+            className="p-1.5 bg-white border border-gray-300 rounded hover:bg-gray-100 text-gray-800 cursor-pointer shadow-2xs"
+            title="Insert Structured Table"
+          >
+            <TableIcon className="w-3.5 h-3.5 text-[#0D6D62]" />
+          </button>
+
+          <span className="w-px h-5 bg-gray-300 mx-0.5" />
+
+          {/* Text Color Picker with Preset Palette Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                saveSelection();
+                setShowTextColorPicker(!showTextColorPicker);
+                setShowHighlightPicker(false);
               }}
-              className="w-4 h-4 p-0 border-0 cursor-pointer bg-transparent"
-              title="Text Color"
-            />
+              className="flex items-center gap-1 bg-white border border-gray-300 rounded px-2 py-1 shadow-2xs hover:bg-gray-50 cursor-pointer"
+              title="Select Text Color"
+            >
+              <span className="font-bold underline text-xs" style={{ color: textColor }}>
+                A
+              </span>
+              <ChevronDown className="w-3 h-3 text-gray-400" />
+            </button>
+
+            {showTextColorPicker && (
+              <div className="absolute left-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-30 p-2.5">
+                <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                  Text Color Palette
+                </div>
+                <div className="grid grid-cols-4 gap-1.5 mb-2">
+                  {TEXT_COLORS.map((item) => (
+                    <button
+                      key={item.color}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setTextColor(item.color);
+                        executeCommand('foreColor', item.color);
+                        setShowTextColorPicker(false);
+                      }}
+                      className="w-7 h-7 rounded border border-gray-300 hover:scale-110 transition-transform cursor-pointer shadow-2xs"
+                      style={{ backgroundColor: item.color }}
+                      title={item.name}
+                    />
+                  ))}
+                </div>
+                <div className="pt-1.5 border-t border-gray-100 flex items-center justify-between text-xs">
+                  <span className="text-[11px] text-gray-500">Custom:</span>
+                  <input
+                    type="color"
+                    value={textColor}
+                    onChange={(e) => {
+                      setTextColor(e.target.value);
+                      executeCommand('foreColor', e.target.value);
+                    }}
+                    className="w-6 h-6 border-0 p-0 cursor-pointer bg-transparent"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Background Highlight Color */}
-          <div className="flex items-center gap-1 bg-white border border-gray-300 rounded px-1.5 py-1 shadow-2xs">
-            <Highlighter className="w-3 h-3 text-amber-600" />
-            <input
-              type="color"
-              value={highlightColor}
-              onMouseDown={() => saveSelection()}
-              onChange={(e) => {
-                setHighlightColor(e.target.value);
-                executeCommand('hiliteColor', e.target.value);
+          {/* Background Highlight Color with Preset Palette Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                saveSelection();
+                setShowHighlightPicker(!showHighlightPicker);
+                setShowTextColorPicker(false);
               }}
-              className="w-4 h-4 p-0 border-0 cursor-pointer bg-transparent"
-              title="Highlight Background Color"
-            />
+              className="flex items-center gap-1 bg-white border border-gray-300 rounded px-2 py-1 shadow-2xs hover:bg-gray-50 cursor-pointer"
+              title="Background Highlight Palette"
+            >
+              <Highlighter className="w-3 h-3 text-amber-600" />
+              <div
+                className="w-2.5 h-2.5 rounded-full border border-gray-300"
+                style={{ backgroundColor: highlightColor }}
+              />
+              <ChevronDown className="w-3 h-3 text-gray-400" />
+            </button>
+
+            {showHighlightPicker && (
+              <div className="absolute left-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-30 p-2.5">
+                <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                  Highlight Palette
+                </div>
+                <div className="grid grid-cols-4 gap-1.5 mb-2">
+                  {HIGHLIGHT_COLORS.map((item) => (
+                    <button
+                      key={item.color}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setHighlightColor(item.color);
+                        executeCommand('hiliteColor', item.color);
+                        setShowHighlightPicker(false);
+                      }}
+                      className="w-7 h-7 rounded border border-gray-300 hover:scale-110 transition-transform cursor-pointer shadow-2xs flex items-center justify-center text-[9px] font-bold text-gray-600"
+                      style={{ backgroundColor: item.color }}
+                      title={item.name}
+                    >
+                      {item.color === 'transparent' ? '✕' : ''}
+                    </button>
+                  ))}
+                </div>
+                <div className="pt-1.5 border-t border-gray-100 flex items-center justify-between text-xs">
+                  <span className="text-[11px] text-gray-500">Custom:</span>
+                  <input
+                    type="color"
+                    value={highlightColor === 'transparent' ? '#FEF08A' : highlightColor}
+                    onChange={(e) => {
+                      setHighlightColor(e.target.value);
+                      executeCommand('hiliteColor', e.target.value);
+                    }}
+                    className="w-6 h-6 border-0 p-0 cursor-pointer bg-transparent"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Clear Formatting */}
@@ -797,9 +998,9 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
               executeCommand('removeFormat');
             }}
             className="p-1.5 bg-white border border-gray-300 rounded hover:bg-gray-100 text-gray-800 cursor-pointer shadow-2xs"
-            title="Clear Formatting"
+            title="Clear Formatting (Eraser)"
           >
-            <RemoveFormatting className="w-3.5 h-3.5" />
+            <RemoveFormatting className="w-3.5 h-3.5 text-rose-600" />
           </button>
 
           <span className="w-px h-5 bg-gray-300 mx-0.5" />
@@ -934,8 +1135,74 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
       </div>
 
       {/* =========================================================================
-          MODALS: YOUTUBE, LINK, SPECIAL CHARACTERS, HELP
+          MODALS: IMAGE URL, YOUTUBE, LINK, SPECIAL CHARACTERS, HELP
           ========================================================================= */}
+      {/* Insert Image URL Modal */}
+      {showImageModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-[#0D6D62]" />
+                <span>Insert Diagram / Media Image</span>
+              </h4>
+              <button
+                type="button"
+                onClick={() => setShowImageModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleInsertImageModal} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Image Direct URL (Cloudinary / Web)
+                </label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://res.cloudinary.com/... or https://example.com/diagram.png"
+                  value={mediaImageUrl}
+                  onChange={(e) => setMediaImageUrl(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#0D6D62]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Caption / Alt Text (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Figure 1: Parts of a Plant Cell"
+                  value={mediaImageCaption}
+                  onChange={(e) => setMediaImageCaption(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#0D6D62]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowImageModal(false)}
+                  className="px-3.5 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-lg bg-[#0D6D62] hover:bg-[#0A5A51] text-white text-xs font-bold shadow-xs cursor-pointer"
+                >
+                  Insert Image
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* YouTube Modal */}
       {showYoutubeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
@@ -962,7 +1229,7 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
                 <input
                   type="text"
                   required
-                  placeholder="https://www.youtube.com/watch?v=..."
+                  placeholder="https://www.youtube.com/watch?v=... or youtu.be/..."
                   value={youtubeUrl}
                   onChange={(e) => setYoutubeUrl(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#0D6D62]"
@@ -1140,7 +1407,11 @@ export const WordPressEditor: React.FC<WordPressEditorProps> = ({
               </div>
               <div className="flex justify-between py-1 border-b border-gray-100">
                 <span>Math & Science Formulas</span>
-                <kbd className="px-2 py-0.5 bg-gray-100 rounded text-[10px] font-mono">$...$</kbd>
+                <kbd className="px-2 py-0.5 bg-gray-100 rounded text-[10px] font-mono">$...$ or $$...$$</kbd>
+              </div>
+              <div className="flex justify-between py-1 border-b border-gray-100">
+                <span>Insert Table</span>
+                <kbd className="px-2 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Table Icon</kbd>
               </div>
             </div>
             <div className="text-right pt-2">

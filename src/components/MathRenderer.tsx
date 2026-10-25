@@ -10,88 +10,67 @@ interface MathRendererProps {
 }
 
 /**
- * Universal Math, Physics, Chemistry & Quantitative Reasoning Renderer
- * Automatically detects and formats LaTeX math ($...$ or $$...$$),
- * fractions, chemical equations, and formulas alongside regular text.
+ * Universal Math, Physics, Chemistry & Rich HTML Content Renderer
+ * - Seamlessly parses both rich HTML markup (headings, lists, bold, italics,
+ *   tables, colors, blockquotes, images, embedded YouTube iframes)
+ *   AND LaTeX formulas ($...$ or $$...$$).
  */
 export const MathRenderer: React.FC<MathRendererProps> = ({
   content = '',
   className = '',
   inline = false,
 }) => {
-  const renderedElements = useMemo(() => {
-    if (!content) return null;
+  const renderedHtml = useMemo(() => {
+    if (!content) return '';
 
-    // Split text by display math $$...$$ and inline math $...$
-    // Pattern matches $$...$$ or $...$
-    const mathRegex = /(\$\$[\s\S]+?\$\$|\$[^\$\n]+?\$)/g;
-    const parts = content.split(mathRegex);
-
-    return parts.map((part, index) => {
-      if (!part) return null;
-
-      // Block / Display Math ($$...$$)
-      if (part.startsWith('$$') && part.endsWith('$$')) {
-        const math = part.slice(2, -2).trim();
-        try {
-          const html = katex.renderToString(math, {
-            displayMode: true,
-            throwOnError: false,
-          });
-          return (
-            <div
-              key={index}
-              className="my-3 overflow-x-auto py-1 text-center"
-              dangerouslySetInnerHTML={{ __html: html }}
-            />
-          );
-        } catch (e) {
-          return (
-            <code key={index} className="rounded bg-rose-50 px-2 py-1 text-sm text-rose-600 font-mono">
-              {part}
-            </code>
-          );
+    // Replace display math $$...$$ and inline math $...$ with KaTeX rendered HTML
+    // We replace $$...$$ first, then $...$
+    return content.replace(
+      /(\$\$[\s\S]+?\$\$|\$[^\$\n]+?\$)/g,
+      (match) => {
+        if (match.startsWith('$$') && match.endsWith('$$')) {
+          const math = match.slice(2, -2).trim();
+          try {
+            return katex.renderToString(math, {
+              displayMode: true,
+              throwOnError: false,
+            });
+          } catch {
+            return `<code class="rounded bg-rose-50 px-2 py-1 text-sm text-rose-600 font-mono">${match}</code>`;
+          }
+        } else if (match.startsWith('$') && match.endsWith('$')) {
+          const math = match.slice(1, -1).trim();
+          try {
+            return katex.renderToString(math, {
+              displayMode: false,
+              throwOnError: false,
+            });
+          } catch {
+            return `<code class="rounded bg-rose-50 px-1 text-xs text-rose-600 font-mono">${match}</code>`;
+          }
         }
+        return match;
       }
-
-      // Inline Math ($...$)
-      if (part.startsWith('$') && part.endsWith('$')) {
-        const math = part.slice(1, -1).trim();
-        try {
-          const html = katex.renderToString(math, {
-            displayMode: false,
-            throwOnError: false,
-          });
-          return (
-            <span
-              key={index}
-              className="inline-block px-1 align-baseline"
-              dangerouslySetInnerHTML={{ __html: html }}
-            />
-          );
-        } catch (e) {
-          return (
-            <code key={index} className="rounded bg-rose-50 px-1 text-xs text-rose-600 font-mono">
-              {part}
-            </code>
-          );
-        }
-      }
-
-      // Regular text (handles newlines)
-      return (
-        <span key={index} className="whitespace-pre-wrap">
-          {part}
-        </span>
-      );
-    });
+    );
   }, [content]);
 
+  if (!content) return null;
+
   if (inline) {
-    return <span className={`math-renderer ${className}`}>{renderedElements}</span>;
+    return (
+      <span
+        className={`math-renderer inline-block align-baseline prose max-w-none ${className}`}
+        dangerouslySetInnerHTML={{ __html: renderedHtml }}
+      />
+    );
   }
 
-  return <div className={`math-renderer ${className}`}>{renderedElements}</div>;
+  return (
+    <div
+      className={`math-renderer prose max-w-none text-gray-900 leading-relaxed ${className}`}
+      dangerouslySetInnerHTML={{ __html: renderedHtml }}
+    />
+  );
 };
 
 export default MathRenderer;
