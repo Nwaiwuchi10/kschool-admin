@@ -187,6 +187,55 @@ function EditExerciseContent() {
     });
   };
 
+  const handleAddOption = () => {
+    setQuestions((prev) => {
+      const copy = [...prev];
+      const cur = { ...copy[activeQuestionIndex] };
+      cur.options = [...cur.options, ''];
+      copy[activeQuestionIndex] = cur;
+      return copy;
+    });
+  };
+
+  const handleRemoveOption = (optionIndex: number) => {
+    setQuestions((prev) => {
+      const copy = [...prev];
+      const cur = { ...copy[activeQuestionIndex] };
+      if (cur.options.length <= 2) {
+        showError('Minimum Options', 'A question must have at least 2 options (e.g. Yes / No).');
+        return prev;
+      }
+      const newOptions = cur.options.filter((_, idx) => idx !== optionIndex);
+      let newCorrectIndex = cur.correctOptionIndex;
+      if (newCorrectIndex === optionIndex) {
+        newCorrectIndex = 0;
+      } else if (newCorrectIndex > optionIndex) {
+        newCorrectIndex -= 1;
+      }
+      cur.options = newOptions;
+      cur.correctOptionIndex = newCorrectIndex;
+      copy[activeQuestionIndex] = cur;
+      return copy;
+    });
+  };
+
+  const handleSetPresetOptions = (preset: 'yes_no' | 'true_false' | 'standard_4') => {
+    setQuestions((prev) => {
+      const copy = [...prev];
+      const cur = { ...copy[activeQuestionIndex] };
+      if (preset === 'yes_no') {
+        cur.options = ['Yes', 'No'];
+      } else if (preset === 'true_false') {
+        cur.options = ['True', 'False'];
+      } else if (preset === 'standard_4') {
+        cur.options = ['', '', '', ''];
+      }
+      cur.correctOptionIndex = 0;
+      copy[activeQuestionIndex] = cur;
+      return copy;
+    });
+  };
+
   const addQuestion = () => {
     setQuestions((prev) => [
       ...prev,
@@ -561,10 +610,44 @@ function EditExerciseContent() {
               </div>
 
               {/* Options */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-gray-700">
-                  Multiple Choice Options (Select radio to mark correct answer)
-                </label>
+              <div className="space-y-3 pt-2 border-t border-gray-100">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700">
+                      Answer Options ({currentQ.options.length} options)
+                    </label>
+                    <p className="text-[11px] text-gray-400">
+                      Click radio button to mark correct answer. Add or remove options as needed (minimum 2 options).
+                    </p>
+                  </div>
+
+                  {/* Quick Presets */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] font-semibold text-gray-400 mr-1">Presets:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleSetPresetOptions('yes_no')}
+                      className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-teal-50 text-[#0D6D62] hover:bg-teal-100 transition-colors cursor-pointer"
+                    >
+                      Yes / No
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetPresetOptions('true_false')}
+                      className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer"
+                    >
+                      True / False
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetPresetOptions('standard_4')}
+                      className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors cursor-pointer"
+                    >
+                      4 Options (A-D)
+                    </button>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 gap-2.5">
                   {currentQ.options.map((opt, oIdx) => {
                     const isCorrect = currentQ.correctOptionIndex === oIdx;
@@ -581,6 +664,7 @@ function EditExerciseContent() {
                           type="button"
                           onClick={() => updateCurrentQuestion('correctOptionIndex', oIdx)}
                           className="shrink-0 cursor-pointer"
+                          title={isCorrect ? 'Correct Answer' : 'Click to mark as correct'}
                         >
                           {isCorrect ? (
                             <CheckCircle2 className="w-5 h-5 text-[#0D6D62]" />
@@ -595,12 +679,35 @@ function EditExerciseContent() {
                           type="text"
                           value={opt}
                           onChange={(e) => updateOptionText(oIdx, e.target.value)}
-                          placeholder={`Option ${String.fromCharCode(65 + oIdx)}...`}
+                          placeholder={`Option ${String.fromCharCode(65 + oIdx)} (e.g. Yes, No, or Answer text)...`}
                           className="flex-1 px-3 py-1.5 rounded-lg border border-gray-200 text-xs focus:outline-none focus:border-[#0D6D62] bg-white"
                         />
+                        {/* Remove Option Button (if > 2 options) */}
+                        {currentQ.options.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveOption(oIdx)}
+                            className="text-gray-300 hover:text-red-500 p-1 rounded-lg transition-colors cursor-pointer"
+                            title="Remove this option"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     );
                   })}
+                </div>
+
+                {/* Add Option Button */}
+                <div className="flex items-center justify-start pt-1">
+                  <button
+                    type="button"
+                    onClick={handleAddOption}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-dashed border-[#0D6D62] text-[#0D6D62] hover:bg-emerald-50 text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Option ({String.fromCharCode(65 + currentQ.options.length)})</span>
+                  </button>
                 </div>
               </div>
 
