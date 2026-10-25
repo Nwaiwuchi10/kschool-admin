@@ -83,9 +83,9 @@ function NewLessonContent() {
   const voiceNoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Attached Exercise / Assessment for this lesson
+  // Attached Exercises / Quizzes for this lesson (multi-select list)
   const [availableExercises, setAvailableExercises] = useState<Exercise[]>([]);
-  const [selectedExerciseId, setSelectedExerciseId] = useState<string>('');
+  const [selectedExerciseIds, setSelectedExerciseIds] = useState<string[]>([]);
 
   // Dynamic Subjects & Classes
   const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]);
@@ -345,7 +345,8 @@ function NewLessonContent() {
         images,
         voiceNoteUrl: voiceNoteUrl || undefined,
         voiceNoteDuration: recordingSeconds || undefined,
-        quiz: selectedExerciseId || undefined,
+        exercises: selectedExerciseIds,
+        quiz: selectedExerciseIds.length > 0 ? selectedExerciseIds[0] : undefined,
         status,
         audioUrl: audioUrl || undefined,
       });
@@ -912,39 +913,88 @@ function NewLessonContent() {
               </div>
             </div>
 
-            {/* 3. Attach Exercise to Lesson */}
+            {/* 3. Attach Exercises / Quizzes to Lesson */}
             <div className="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                     <HelpCircle className="w-4 h-4 text-[#0D6D62]" />
-                    <span>Attach Exercise to Lesson</span>
+                    <span>Attach Exercises / Quizzes to Lesson</span>
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Attach an interactive exercise or practice test that students take after completing this lesson.
+                    Select one or more practice exercises to attach to this lesson. Students can solve them to test their understanding.
                   </p>
                 </div>
-                <Link
-                  href="/exercises/new"
-                  target="_blank"
-                  className="text-xs font-bold text-[#0D6D62] hover:underline"
-                >
-                  + Create New Exercise
-                </Link>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#E6F7F3] text-[#0D6D62]">
+                    {selectedExerciseIds.length} Attached
+                  </span>
+                  <Link
+                    href="/exercises/new"
+                    target="_blank"
+                    className="text-xs font-bold text-[#0D6D62] hover:underline"
+                  >
+                    + Create Exercise
+                  </Link>
+                </div>
               </div>
 
-              <select
-                value={selectedExerciseId}
-                onChange={(e) => setSelectedExerciseId(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm font-semibold text-gray-800 bg-[#FAFAFA] focus:outline-none focus:border-[#0D6D62] cursor-pointer"
-              >
-                <option value="">No Exercise Attached (Optional)</option>
-                {availableExercises.map((exercise) => (
-                  <option key={exercise._id} value={exercise._id}>
-                    {exercise.title} ({exercise.questions?.length || 0} questions) — {exercise.classLevel || 'General'}
-                  </option>
-                ))}
-              </select>
+              {availableExercises.length === 0 ? (
+                <div className="p-4 rounded-xl border border-dashed border-gray-200 bg-gray-50/50 text-center text-xs text-gray-500">
+                  No exercises created yet.{' '}
+                  <Link href="/exercises/new" target="_blank" className="text-[#0D6D62] font-bold underline">
+                    Create an exercise
+                  </Link>{' '}
+                  to attach to this lesson.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-60 overflow-y-auto p-1">
+                  {availableExercises.map((exercise) => {
+                    const isSelected = selectedExerciseIds.includes(exercise._id || '');
+                    return (
+                      <div
+                        key={exercise._id}
+                        onClick={() => {
+                          if (!exercise._id) return;
+                          if (isSelected) {
+                            setSelectedExerciseIds((prev) => prev.filter((id) => id !== exercise._id));
+                          } else {
+                            setSelectedExerciseIds((prev) => [...prev, exercise._id!]);
+                          }
+                        }}
+                        className={`flex items-start gap-2.5 p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-[#E6F7F3] border-[#0D6D62] shadow-2xs'
+                            : 'bg-white border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}} // handled by parent div
+                          className="mt-0.5 w-4 h-4 rounded text-[#0D6D62] focus:ring-[#0D6D62] cursor-pointer"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-gray-900 truncate">{exercise.title}</p>
+                          <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5">
+                            <span className="font-medium text-[#0D6D62]">
+                              {exercise.questions?.length || 0} Questions
+                            </span>
+                            <span>•</span>
+                            <span>{exercise.classLevel || 'General'}</span>
+                            {exercise.subject && (
+                              <>
+                                <span>•</span>
+                                <span className="truncate">{exercise.subject}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Bottom Buttons matching Image 2: Save Draft & Publish */}

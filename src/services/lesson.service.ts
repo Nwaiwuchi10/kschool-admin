@@ -13,6 +13,7 @@ export interface CreateLessonDto {
   voiceNoteUrl?: string;
   voiceNoteDuration?: number;
   quiz?: string;
+  exercises?: string[];
   order?: number;
   status?: 'published' | 'draft';
   readTime?: number;

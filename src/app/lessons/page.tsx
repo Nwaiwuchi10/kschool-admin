@@ -258,9 +258,12 @@ export default function LessonsPage() {
                               <ImageIcon className="w-3.5 h-3.5" /> {lesson.images.length} Image{lesson.images.length > 1 ? 's' : ''}
                             </span>
                           )}
-                          {lesson.quiz && (
+                          {((Array.isArray(lesson.exercises) && lesson.exercises.length > 0) || lesson.quiz) && (
                             <span className="inline-flex items-center gap-1 text-amber-600 font-medium">
-                              <HelpCircle className="w-3.5 h-3.5" /> Exercise Attached
+                              <HelpCircle className="w-3.5 h-3.5" />{' '}
+                              {Array.isArray(lesson.exercises) && lesson.exercises.length > 1
+                                ? `${lesson.exercises.length} Exercises Attached`
+                                : 'Exercise Attached'}
                             </span>
                           )}
                         </div>
