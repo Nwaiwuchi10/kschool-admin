@@ -243,7 +243,7 @@ function SubscriptionsContent() {
                         <span className="text-2xl font-extrabold text-gray-900">
                           ₦{pkg.price.toLocaleString()}
                         </span>
-                        <span className="text-xs text-gray-400 font-medium"> / Academic Session</span>
+                        <span className="text-xs text-gray-400 font-medium"> / Yearly</span>
                       </div>
 
                       {/* Features List */}
@@ -320,7 +320,7 @@ function SubscriptionsContent() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">
-                      Academic Session *
+                      Yearly / Academic Session *
                     </label>
                     <input
                       type="text"
