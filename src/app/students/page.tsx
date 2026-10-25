@@ -25,7 +25,7 @@ import {
 function StudentsOverviewContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialClass = searchParams.get('class') || 'JSS 1';
+  const initialClass = searchParams.get('class') || 'all';
 
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>(initialClass);
@@ -69,7 +69,8 @@ function StudentsOverviewContent() {
     async function loadData() {
       try {
         setIsLoading(true);
-        const res = await studentService.getClassOverview(selectedClass);
+        const classArg = selectedClass === 'all' ? undefined : selectedClass;
+        const res = await studentService.getClassOverview(classArg);
         setOverviewData({
           totalStudents: res?.totalStudents ?? 0,
           activeNow: res?.activeNow ?? 0,
@@ -166,7 +167,9 @@ function StudentsOverviewContent() {
             >
               <div className="flex items-center gap-2">
                 <span className="text-gray-500">Class:</span>
-                <span className="font-bold text-[#0D6D62]">{selectedClass}</span>
+                <span className="font-bold text-[#0D6D62]">
+                  {selectedClass === 'all' ? 'All Classes' : selectedClass}
+                </span>
               </div>
               <ChevronDown className="w-4 h-4 text-gray-500" />
             </button>
@@ -176,6 +179,24 @@ function StudentsOverviewContent() {
                 <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100">
                   Select Curriculum Class
                 </div>
+                
+                {/* All Classes Option */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedClass('all');
+                    setIsClassDropdownOpen(false);
+                  }}
+                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between hover:bg-[#E6F7F2]/40 transition-colors ${
+                    selectedClass === 'all' ? 'text-[#0D6D62] bg-[#E6F7F2]/60 font-bold' : 'text-gray-700'
+                  }`}
+                >
+                  <span>All Classes</span>
+                  {selectedClass === 'all' && (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#0D6D62]" />
+                  )}
+                </button>
+
                 {classes.length > 0 ? (
                   classes.map((cls) => (
                     <button
