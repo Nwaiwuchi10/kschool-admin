@@ -10,7 +10,7 @@ import { lessonService } from '@/services/lesson.service';
 import { subjectService } from '@/services/subject.service';
 import { classService } from '@/services/class.service';
 import { uploadService } from '@/services/upload.service';
-import { quizService } from '@/services/quiz.service';
+import { exerciseService, Exercise } from '@/services/exercise.service';
 import { Subject, SchoolClass } from '@/types/curriculum.types';
 import { ttsService, TtsVoice } from '@/services/tts.service';
 import { useResponseModal } from '@/context/ModalContext';
@@ -83,9 +83,9 @@ function NewLessonContent() {
   const voiceNoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Attached Quiz / Exercise for this lesson
-  const [availableQuizzes, setAvailableQuizzes] = useState<any[]>([]);
-  const [selectedQuizId, setSelectedQuizId] = useState<string>('');
+  // Attached Exercise / Assessment for this lesson
+  const [availableExercises, setAvailableExercises] = useState<Exercise[]>([]);
+  const [selectedExerciseId, setSelectedExerciseId] = useState<string>('');
 
   // Dynamic Subjects & Classes
   const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]);
@@ -98,14 +98,14 @@ function NewLessonContent() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [subList, clsList, qList] = await Promise.all([
+        const [subList, clsList, exList] = await Promise.all([
           subjectService.getSubjects(),
           classService.getClasses(),
-          quizService.getAllQuizzes(),
+          exerciseService.getAllExercises(),
         ]);
         setAvailableSubjects(subList || []);
         setAvailableClasses(clsList || []);
-        setAvailableQuizzes(qList || []);
+        setAvailableExercises(exList || []);
 
         if (initialSubjectId) {
           const match = (subList || []).find((s) => s._id === initialSubjectId);
@@ -345,7 +345,7 @@ function NewLessonContent() {
         images,
         voiceNoteUrl: voiceNoteUrl || undefined,
         voiceNoteDuration: recordingSeconds || undefined,
-        quiz: selectedQuizId || undefined,
+        quiz: selectedExerciseId || undefined,
         status,
         audioUrl: audioUrl || undefined,
       });
@@ -912,36 +912,36 @@ function NewLessonContent() {
               </div>
             </div>
 
-            {/* 3. Attach Quiz / Exercise to Lesson */}
+            {/* 3. Attach Exercise to Lesson */}
             <div className="p-5 rounded-2xl bg-white border border-gray-200/90 shadow-2xs space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                     <HelpCircle className="w-4 h-4 text-[#0D6D62]" />
-                    <span>Attach Quiz / Assessment to Lesson</span>
+                    <span>Attach Exercise to Lesson</span>
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Attach an interactive quiz or practice test that students take after completing this lesson.
+                    Attach an interactive exercise or practice test that students take after completing this lesson.
                   </p>
                 </div>
                 <Link
-                  href="/quizzes/new"
+                  href="/exercises/new"
                   target="_blank"
                   className="text-xs font-bold text-[#0D6D62] hover:underline"
                 >
-                  + Create New Quiz
+                  + Create New Exercise
                 </Link>
               </div>
 
               <select
-                value={selectedQuizId}
-                onChange={(e) => setSelectedQuizId(e.target.value)}
+                value={selectedExerciseId}
+                onChange={(e) => setSelectedExerciseId(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm font-semibold text-gray-800 bg-[#FAFAFA] focus:outline-none focus:border-[#0D6D62] cursor-pointer"
               >
-                <option value="">No Quiz Attached (Optional)</option>
-                {availableQuizzes.map((quiz) => (
-                  <option key={quiz._id} value={quiz._id}>
-                    {quiz.title} ({quiz.questions?.length || 0} questions)
+                <option value="">No Exercise Attached (Optional)</option>
+                {availableExercises.map((exercise) => (
+                  <option key={exercise._id} value={exercise._id}>
+                    {exercise.title} ({exercise.questions?.length || 0} questions) — {exercise.classLevel || 'General'}
                   </option>
                 ))}
               </select>

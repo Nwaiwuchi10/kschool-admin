@@ -260,7 +260,7 @@ export default function LessonsPage() {
                           )}
                           {lesson.quiz && (
                             <span className="inline-flex items-center gap-1 text-amber-600 font-medium">
-                              <HelpCircle className="w-3.5 h-3.5" /> Quiz Attached
+                              <HelpCircle className="w-3.5 h-3.5" /> Exercise Attached
                             </span>
                           )}
                         </div>
