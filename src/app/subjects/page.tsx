@@ -9,7 +9,7 @@ import { subjectService } from '@/services/subject.service';
 import { classService } from '@/services/class.service';
 import { Subject, SchoolClass } from '@/types/curriculum.types';
 import { useResponseModal } from '@/context/ModalContext';
-import { ChevronRight, BookOpen, Layers, RefreshCw, Sparkles, Filter, Plus } from 'lucide-react';
+import { ChevronRight, BookOpen, Layers, RefreshCw, Sparkles, Filter, Plus, Trash2 } from 'lucide-react';
 
 function SubjectsContent() {
   const router = useRouter();
@@ -342,6 +342,17 @@ function SubjectsContent() {
                       title="Link or unlink classes for this subject"
                     >
                       Link Classes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-[11px] font-bold text-red-600 transition-all cursor-pointer shadow-2xs"
+                      title={`Delete ${subject.name}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete</span>
                     </button>
                     <div className="w-9 h-9 rounded-full bg-gray-50 group-hover:bg-emerald-50 group-hover:text-[#127A71] flex items-center justify-center text-gray-400 transition-colors">
                       <ChevronRight className="w-5 h-5" />

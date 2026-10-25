@@ -202,7 +202,7 @@ function SubjectDetailContent() {
               </p>
             </div>
 
-            <div className="flex items-center gap-3 self-start sm:self-auto">
+            <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
               <Link
                 href={`/lessons/new?subjectId=${subject?._id}&subjectName=${encodeURIComponent(subject?.name || '')}&classLevel=${encodeURIComponent(subject?.classLevel || (subject?.classes?.[0] || ''))}`}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#0D6D62] border border-[#A6E6D8] text-xs sm:text-sm font-bold transition-all shadow-2xs cursor-pointer"
@@ -217,6 +217,15 @@ function SubjectDetailContent() {
               >
                 <Edit className="w-4 h-4" />
                 <span>Edit Subject & Classes</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {}}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-red-600 text-xs sm:text-sm font-semibold transition-all shadow-2xs cursor-pointer"
+                title="Delete Subject"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete</span>
               </button>
             </div>
           </div>
