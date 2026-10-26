@@ -269,7 +269,7 @@ function ClassStudentsContent() {
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-[11px] sm:text-xs font-semibold text-gray-600">
                     <span>Progress</span>
-                    <span className="font-bold text-gray-900">{student.progress}%</span>
+                    <span className="font-bold text-gray-900">{Math.min(100, Math.max(0, student.progress))}%</span>
                   </div>
                   <div className="w-full h-1.5 sm:h-2 rounded-full bg-gray-100 overflow-hidden">
                     <div
@@ -280,7 +280,7 @@ function ClassStudentsContent() {
                           ? 'bg-[#0F766E]'
                           : 'bg-[#0D6D62]'
                       }`}
-                      style={{ width: `${student.progress}%` }}
+                      style={{ width: `${Math.min(100, Math.max(0, student.progress))}%` }}
                     ></div>
                   </div>
                 </div>
