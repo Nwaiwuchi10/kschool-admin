@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { exerciseService, Exercise } from '@/services/exercise.service';
+import { lessonService } from '@/services/lesson.service';
 import { useResponseModal } from '@/context/ModalContext';
 import { MathRenderer } from '@/components/MathRenderer';
 import {
@@ -37,6 +38,16 @@ function ViewExerciseContent() {
       try {
         setIsLoading(true);
         const data = await exerciseService.getExerciseById(exerciseId);
+        if (data && data.lesson && /^[a-fA-F0-9]{24}$/.test(data.lesson.trim())) {
+          try {
+            const lessonObj = await lessonService.getLessonById(data.lesson.trim());
+            if (lessonObj?.title) {
+              data.lesson = lessonObj.title;
+            }
+          } catch {
+            // Keep original if lookup fails
+          }
+        }
         setExercise(data);
       } catch (err: any) {
         showError('Load Error', err?.message || 'Failed to fetch exercise details.');

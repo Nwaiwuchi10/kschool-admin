@@ -503,14 +503,16 @@ function CreateExerciseContent() {
                 >
                   <option value="">-- None / Standalone Exercise --</option>
                   {availableLessons.map((l) => (
-                    <option key={l.id} value={l.id}>
+                    <option key={l.id} value={l.title}>
                       {l.title}
                     </option>
                   ))}
-                  {/* Keep current custom lesson selected if not in availableLessons list */}
-                  {lesson && !availableLessons.some((l) => l.id === lesson || l.title === lesson) && (
-                    <option value={lesson}>{lesson}</option>
-                  )}
+                  {/* Keep current custom lesson selected if not in availableLessons list and not an ObjectId */}
+                  {lesson &&
+                    !/^[a-fA-F0-9]{24}$/.test(lesson.trim()) &&
+                    !availableLessons.some((l) => l.id === lesson || l.title === lesson) && (
+                      <option value={lesson}>{lesson}</option>
+                    )}
                 </select>
               </div>
 

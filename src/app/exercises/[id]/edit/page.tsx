@@ -80,7 +80,20 @@ function EditExerciseContent() {
           setClassLevel(exerciseData.classLevel || '');
           setSubject(exerciseData.subject || '');
           setTopic(exerciseData.topic || '');
-          setLesson(exerciseData.lesson || '');
+          
+          let resolvedLesson = exerciseData.lesson || '';
+          // If lesson was saved as a 24-character hexadecimal MongoDB ObjectId, resolve its human-readable title
+          if (resolvedLesson && /^[a-fA-F0-9]{24}$/.test(resolvedLesson.trim())) {
+            try {
+              const lessonObj = await lessonService.getLessonById(resolvedLesson.trim());
+              if (lessonObj?.title) {
+                resolvedLesson = lessonObj.title;
+              }
+            } catch {
+              // Keep original if lookup fails
+            }
+          }
+          setLesson(resolvedLesson);
           setStatus((exerciseData.status as any) || 'published');
           setPoints(exerciseData.points || 10);
           setEstimatedMinutes(exerciseData.estimatedMinutes || 15);
@@ -487,14 +500,16 @@ function EditExerciseContent() {
                 >
                   <option value="">-- None / Standalone Exercise --</option>
                   {availableLessons.map((l) => (
-                    <option key={l.id} value={l.id}>
+                    <option key={l.id} value={l.title}>
                       {l.title}
                     </option>
                   ))}
-                  {/* Keep current custom lesson selected if not in availableLessons list */}
-                  {lesson && !availableLessons.some((l) => l.id === lesson || l.title === lesson) && (
-                    <option value={lesson}>{lesson}</option>
-                  )}
+                  {/* Keep current custom lesson title selected if not in availableLessons list and not an ObjectId */}
+                  {lesson &&
+                    !/^[a-fA-F0-9]{24}$/.test(lesson.trim()) &&
+                    !availableLessons.some((l) => l.title === lesson || l.id === lesson) && (
+                      <option value={lesson}>{lesson}</option>
+                    )}
                 </select>
               </div>
 

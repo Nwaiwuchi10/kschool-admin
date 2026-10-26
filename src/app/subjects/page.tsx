@@ -115,10 +115,9 @@ function SubjectsContent() {
       setNewSubjectDescription('');
       showSuccess(
         'Subject Created',
-        `"${trimmedName}" has been successfully created as a standalone subject ${
-          selectedClassNames.length > 0
-            ? `and linked to ${selectedClassNames.join(', ')}.`
-            : 'ready to be linked to classes anytime.'
+        `"${trimmedName}" has been successfully created as a standalone subject ${selectedClassNames.length > 0
+          ? `and linked to ${selectedClassNames.join(', ')}.`
+          : 'ready to be linked to classes anytime.'
         }`
       );
       await fetchSubjects();
@@ -160,8 +159,8 @@ function SubjectsContent() {
       Array.isArray(subject.classes) && subject.classes.length > 0
         ? subject.classes
         : subject.classLevel
-        ? [subject.classLevel]
-        : [];
+          ? [subject.classLevel]
+          : [];
     setEditClassNames(existingClasses);
   };
 
@@ -177,10 +176,10 @@ function SubjectsContent() {
     const tag = s.name.toLowerCase().includes('science')
       ? 'Science'
       : s.name.toLowerCase().includes('math')
-      ? 'Math'
-      : s.name.toLowerCase().includes('english')
-      ? 'English'
-      : s.classLevel || 'General';
+        ? 'Math'
+        : s.name.toLowerCase().includes('english')
+          ? 'English'
+          : s.classLevel || 'General';
 
     return {
       lessonCount,
@@ -238,11 +237,10 @@ function SubjectsContent() {
             <button
               key={level}
               onClick={() => setSelectedClassLevel(level)}
-              className={`px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold transition-all shrink-0 cursor-pointer ${
-                selectedClassLevel === level
+              className={`px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold transition-all shrink-0 cursor-pointer ${selectedClassLevel === level
                   ? 'bg-[#127A71] text-white shadow-xs'
                   : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}
+                }`}
             >
               {level}
             </button>
@@ -343,17 +341,7 @@ function SubjectsContent() {
                     >
                       Link Classes
                     </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-[11px] font-bold text-red-600 transition-all cursor-pointer shadow-2xs"
-                      title={`Delete ${subject.name}`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Delete</span>
-                    </button>
+
                     <div className="w-9 h-9 rounded-full bg-gray-50 group-hover:bg-emerald-50 group-hover:text-[#127A71] flex items-center justify-center text-gray-400 transition-colors">
                       <ChevronRight className="w-5 h-5" />
                     </div>
@@ -408,11 +396,10 @@ function SubjectsContent() {
                         return (
                           <label
                             key={cls._id}
-                            className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer text-xs font-semibold transition-all ${
-                              isChecked
+                            className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer text-xs font-semibold transition-all ${isChecked
                                 ? 'bg-[#E6F7F3] text-[#0D6D62] border border-[#A6E6D8]'
                                 : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-                            }`}
+                              }`}
                           >
                             <input
                               type="checkbox"
@@ -489,11 +476,10 @@ function SubjectsContent() {
                     return (
                       <label
                         key={cls._id}
-                        className={`flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer text-xs font-semibold transition-all ${
-                          isChecked
+                        className={`flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer text-xs font-semibold transition-all ${isChecked
                             ? 'bg-[#E6F7F3] text-[#0D6D62] border border-[#A6E6D8]'
                             : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-                        }`}
+                          }`}
                       >
                         <input
                           type="checkbox"

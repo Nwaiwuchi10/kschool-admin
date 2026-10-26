@@ -161,12 +161,13 @@ function StudentDetailsContent() {
   }
 
   // Circular progress calculations
-  const progressVal =
+  const rawProgressVal =
     typeof student.overallProgress === 'number'
       ? student.overallProgress
       : typeof student.progress === 'number'
       ? student.progress
       : 0;
+  const progressVal = Math.min(100, Math.max(0, rawProgressVal));
   const radius = 34;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progressVal / 100) * circumference;
