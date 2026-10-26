@@ -137,6 +137,30 @@ function SubjectDetailContent() {
     }
   };
 
+  const handleDeleteSubject = () => {
+    if (!subject) return;
+
+    showModal({
+      type: 'warning',
+      title: 'Delete Subject?',
+      message: `Are you sure you want to delete "${subject.name}"? This action cannot be undone.`,
+      confirmText: 'Delete Subject',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await subjectService.deleteSubject(subject._id);
+          showSuccess('Subject Deleted', `"${subject.name}" was permanently deleted.`);
+          router.push('/subjects');
+        } catch (err: any) {
+          showError(
+            'Delete Failed',
+            err?.response?.data?.message || err?.message || 'Could not delete subject.'
+          );
+        }
+      },
+    });
+  };
+
   const topicsList = subject?.topics && subject.topics.length > 0
     ? subject.topics.map((t, idx) => {
         const totalLessons = t.lessons?.length || 0;
@@ -220,7 +244,7 @@ function SubjectDetailContent() {
               </button>
               <button
                 type="button"
-                onClick={() => {}}
+                onClick={handleDeleteSubject}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-red-600 text-xs sm:text-sm font-semibold transition-all shadow-2xs cursor-pointer"
                 title="Delete Subject"
               >

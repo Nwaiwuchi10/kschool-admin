@@ -215,7 +215,7 @@ function StudentDetailsContent() {
               {student.name}
             </h1>
             <p className="text-xs sm:text-sm text-gray-500 font-medium">
-              Class {student.className || 'JSS 1'} • Roll {student.rollNumber || '#14'}
+              Class: {student.className || student.grade || 'Curriculum Student'}
             </p>
           </div>
         </div>
