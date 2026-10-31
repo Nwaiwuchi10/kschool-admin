@@ -9,6 +9,9 @@ import PrimaryButton from '@/components/ui/PrimaryButton';
 import { lessonService } from '@/services/lesson.service';
 import { uploadService } from '@/services/upload.service';
 import { exerciseService, Exercise } from '@/services/exercise.service';
+import { subjectService } from '@/services/subject.service';
+import { classService } from '@/services/class.service';
+import { Subject, SchoolClass } from '@/types/curriculum.types';
 import { ttsService } from '@/services/tts.service';
 import { useResponseModal } from '@/context/ModalContext';
 import {
@@ -19,6 +22,8 @@ import {
   Pause,
   RefreshCw,
   Sparkles,
+  BookOpen,
+  GraduationCap,
   Image as ImageIcon,
   Mic,
   Square,
@@ -77,15 +82,32 @@ function EditLessonContent() {
   const [availableExercises, setAvailableExercises] = useState<Exercise[]>([]);
   const [selectedExerciseIds, setSelectedExerciseIds] = useState<string[]>([]);
 
+  // Curriculum Linking: Subjects & Classes
+  const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]);
+  const [availableClasses, setAvailableClasses] = useState<SchoolClass[]>([]);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
+  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+
+  const toggleClass = (className: string) => {
+    setSelectedClasses((prev) =>
+      prev.includes(className) ? prev.filter((c) => c !== className) : [...prev, className]
+    );
+  };
+
   useEffect(() => {
-    async function loadLessonAndExercises() {
+    async function loadLessonAndFilters() {
       try {
         setIsLoading(true);
-        const [lessonData, exercisesData] = await Promise.all([
+        const [lessonData, exercisesData, subList, clsList] = await Promise.all([
           lessonService.getLessonById(lessonId),
           exerciseService.getAllExercises(),
+          subjectService.getSubjects(),
+          classService.getClasses(),
         ]);
         setAvailableExercises(exercisesData || []);
+        setAvailableSubjects(subList || []);
+        setAvailableClasses(clsList || []);
+
         if (lessonData) {
           setTitle(lessonData.title || '');
           setContent(lessonData.content || '');
@@ -95,6 +117,20 @@ function EditLessonContent() {
           setImages(lessonData.images || []);
           setVoiceNoteUrl(lessonData.voiceNoteUrl || null);
           setRecordingSeconds(lessonData.voiceNoteDuration || 0);
+
+          // Extract existing linked subject
+          const firstSubj = Array.isArray(lessonData.subjects) && lessonData.subjects.length > 0
+            ? lessonData.subjects[0]
+            : lessonData.subject;
+          const subjId = firstSubj?._id || firstSubj || '';
+          setSelectedSubjectId(typeof subjId === 'string' ? subjId : String(subjId));
+
+          // Extract existing linked classes
+          if (Array.isArray(lessonData.classes) && lessonData.classes.length > 0) {
+            setSelectedClasses(lessonData.classes);
+          } else if (lessonData.classLevel) {
+            setSelectedClasses([lessonData.classLevel]);
+          }
 
           // Extract existing attached exercises or fallback to single quiz
           const existingIds: string[] = [];
@@ -119,7 +155,7 @@ function EditLessonContent() {
       }
     }
     if (lessonId) {
-      loadLessonAndExercises();
+      loadLessonAndFilters();
     }
   }, [lessonId]);
 
@@ -337,6 +373,9 @@ function EditLessonContent() {
       await lessonService.updateLesson(lessonId, {
         title: title.trim(),
         content: content.trim(),
+        subjectId: selectedSubjectId || undefined,
+        subjects: selectedSubjectId ? [selectedSubjectId] : [],
+        classes: selectedClasses,
         objectives,
         outlines,
         audioUrl: audioUrl || undefined,
@@ -346,7 +385,7 @@ function EditLessonContent() {
         exercises: selectedExerciseIds,
         quiz: selectedExerciseIds.length > 0 ? selectedExerciseIds[0] : undefined,
       });
-      showSuccess('Changes Saved', 'Lesson content, Cloudinary media, and attached exercises updated successfully.', () =>
+      showSuccess('Changes Saved', 'Lesson content, curriculum links, Cloudinary media, and attached exercises updated successfully.', () =>
         router.push('/lessons')
       );
     } catch (err: any) {
@@ -418,6 +457,98 @@ function EditLessonContent() {
               onChange={(e) => setTitle(e.target.value)}
               disabled={isSaving}
             />
+
+            {/* Curriculum Linking: Subject & Classes (matching creation page) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 sm:p-5 rounded-2xl bg-gray-50 border border-gray-200/80">
+              {/* Linked Subject */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5 text-[#0D6D62]" />
+                  <span>Curriculum Subject (Optional)</span>
+                </label>
+                <select
+                  value={selectedSubjectId}
+                  onChange={(e) => {
+                    const subId = e.target.value;
+                    setSelectedSubjectId(subId);
+                    const found = availableSubjects.find((s) => s._id === subId);
+                    if (found && found.classes && found.classes.length > 0) {
+                      // Automatically inherit linked classes from the subject if not set
+                      setSelectedClasses(found.classes);
+                    }
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm focus:outline-none focus:border-[#0D6D62] bg-white cursor-pointer"
+                >
+                  <option value="">Standalone Lesson (Not tied to a specific subject)</option>
+                  {availableSubjects.map((s) => (
+                    <option key={s._id} value={s._id}>
+                      {s.name} {s.classLevel ? `(${s.classLevel})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-gray-400">
+                  Select a subject to automatically catalog this lesson under its syllabus topics.
+                </p>
+              </div>
+
+              {/* Linked Classes Multi-select */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                    <GraduationCap className="w-3.5 h-3.5 text-[#0D6D62]" />
+                    <span>Target Classes ({selectedClasses.length})</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedClasses(availableClasses.map((c) => c.name))}
+                      className="text-[11px] font-bold text-[#0D6D62] hover:underline cursor-pointer"
+                    >
+                      All
+                    </button>
+                    <span className="text-gray-300">•</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedClasses([])}
+                      className="text-[11px] font-bold text-gray-500 hover:underline cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                <div className="border border-gray-200 rounded-xl p-2.5 bg-white max-h-36 overflow-y-auto space-y-1.5">
+                  {availableClasses.length === 0 ? (
+                    <span className="text-xs text-gray-400">No classes registered</span>
+                  ) : (
+                    availableClasses.map((cls) => {
+                      const isChecked = selectedClasses.includes(cls.name);
+                      return (
+                        <label
+                          key={cls._id}
+                          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                            isChecked
+                              ? 'bg-[#E6F7F3] text-[#0D6D62] border border-[#A6E6D8]'
+                              : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleClass(cls.name)}
+                            className="w-3.5 h-3.5 text-[#0D6D62] rounded border-gray-300 focus:ring-[#0D6D62] cursor-pointer"
+                          />
+                          <span>{cls.name}</span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+                <p className="text-[11px] text-gray-400">
+                  Select which grades or classes can view and study this lesson.
+                </p>
+              </div>
+            </div>
 
             {/* Optional Lesson Objectives & Outlines Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
