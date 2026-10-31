@@ -82,10 +82,12 @@ function EditLessonContent() {
   const [availableExercises, setAvailableExercises] = useState<Exercise[]>([]);
   const [selectedExerciseIds, setSelectedExerciseIds] = useState<string[]>([]);
 
-  // Curriculum Linking: Subjects & Classes
+  // Curriculum Linking: Subjects, Topics & Classes
   const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]);
   const [availableClasses, setAvailableClasses] = useState<SchoolClass[]>([]);
+  const [subjectTopics, setSubjectTopics] = useState<any[]>([]);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
+  const [selectedTopicId, setSelectedTopicId] = useState<string>('');
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
 
   const toggleClass = (className: string) => {
@@ -118,12 +120,27 @@ function EditLessonContent() {
           setVoiceNoteUrl(lessonData.voiceNoteUrl || null);
           setRecordingSeconds(lessonData.voiceNoteDuration || 0);
 
-          // Extract existing linked subject
+          // Extract existing linked subject and topic
           const firstSubj = Array.isArray(lessonData.subjects) && lessonData.subjects.length > 0
             ? lessonData.subjects[0]
             : lessonData.subject;
           const subjId = firstSubj?._id || firstSubj || '';
-          setSelectedSubjectId(typeof subjId === 'string' ? subjId : String(subjId));
+          const cleanSubjId = typeof subjId === 'string' ? subjId : String(subjId);
+          setSelectedSubjectId(cleanSubjId);
+
+          const existingTopic = lessonData.topic?._id || lessonData.topic || '';
+          setSelectedTopicId(typeof existingTopic === 'string' ? existingTopic : String(existingTopic));
+
+          if (cleanSubjId) {
+            try {
+              const fullSubj = await subjectService.getSubjectById(cleanSubjId);
+              if (fullSubj && Array.isArray(fullSubj.topics)) {
+                setSubjectTopics(fullSubj.topics);
+              }
+            } catch (e) {
+              console.warn('Could not load subject topics', e);
+            }
+          }
 
           // Extract existing linked classes
           if (Array.isArray(lessonData.classes) && lessonData.classes.length > 0) {
@@ -375,6 +392,7 @@ function EditLessonContent() {
         content: content.trim(),
         subjectId: selectedSubjectId || undefined,
         subjects: selectedSubjectId ? [selectedSubjectId] : [],
+        topicId: selectedTopicId || undefined,
         classes: selectedClasses,
         objectives,
         outlines,
@@ -458,8 +476,8 @@ function EditLessonContent() {
               disabled={isSaving}
             />
 
-            {/* Curriculum Linking: Subject & Classes (matching creation page) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 sm:p-5 rounded-2xl bg-gray-50 border border-gray-200/80">
+            {/* Curriculum Linking: Subject, Topic & Classes */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 sm:p-5 rounded-2xl bg-gray-50 border border-gray-200/80">
               {/* Linked Subject */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-gray-700 flex items-center gap-1.5">
@@ -468,13 +486,24 @@ function EditLessonContent() {
                 </label>
                 <select
                   value={selectedSubjectId}
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const subId = e.target.value;
                     setSelectedSubjectId(subId);
+                    setSelectedTopicId('');
                     const found = availableSubjects.find((s) => s._id === subId);
                     if (found && found.classes && found.classes.length > 0) {
                       // Automatically inherit linked classes from the subject if not set
                       setSelectedClasses(found.classes);
+                    }
+                    if (subId) {
+                      try {
+                        const full = await subjectService.getSubjectById(subId);
+                        setSubjectTopics(full?.topics || []);
+                      } catch {
+                        setSubjectTopics([]);
+                      }
+                    } else {
+                      setSubjectTopics([]);
                     }
                   }}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm focus:outline-none focus:border-[#0D6D62] bg-white cursor-pointer"
@@ -487,7 +516,37 @@ function EditLessonContent() {
                   ))}
                 </select>
                 <p className="text-[11px] text-gray-400">
-                  Select a subject to automatically catalog this lesson under its syllabus topics.
+                  Select a subject to catalog this lesson under its syllabus.
+                </p>
+              </div>
+
+              {/* Linked Topic under selected subject */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5 text-[#0D6D62]" />
+                  <span>Syllabus Topic (Included Lessons)</span>
+                </label>
+                <select
+                  value={selectedTopicId}
+                  onChange={(e) => setSelectedTopicId(e.target.value)}
+                  disabled={!selectedSubjectId}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs sm:text-sm focus:outline-none focus:border-[#0D6D62] bg-white cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">
+                    {!selectedSubjectId
+                      ? 'Select a subject first...'
+                      : subjectTopics.length === 0
+                      ? 'Default (Auto-linked to General Topic)'
+                      : 'Choose specific syllabus topic...'}
+                  </option>
+                  {subjectTopics.map((t) => (
+                    <option key={t._id} value={t._id}>
+                      {t.title}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-gray-400">
+                  Select the exact topic where this lesson appears in the mobile app.
                 </p>
               </div>
 
