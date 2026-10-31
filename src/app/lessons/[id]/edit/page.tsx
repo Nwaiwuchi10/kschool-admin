@@ -600,13 +600,18 @@ function EditLessonContent() {
                 }}
               />
 
+              {/* Universal Formatted Lesson Live Preview */}
               {content && (
-                <div className="mt-3 p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 shadow-xs">
-                  <div className="text-[11px] font-bold text-[#127A71] uppercase tracking-wider mb-2 flex items-center justify-between">
-                    <span>📐 Live KaTeX Math & Science Formula Preview:</span>
-                    <span className="text-[10px] text-gray-400 font-normal">Formatted dynamically</span>
+                <div className="mt-4 p-5 bg-gradient-to-b from-teal-50/40 to-slate-50 border border-teal-200/80 rounded-2xl text-xs sm:text-sm text-slate-800 shadow-xs">
+                  <div className="text-[12px] font-bold text-[#0D6D62] uppercase tracking-wider mb-3 flex items-center justify-between pb-2 border-b border-teal-100">
+                    <span className="flex items-center gap-1.5">
+                      <span>✨ Formatted Lesson Preview (Mobile & Web View)</span>
+                    </span>
+                    <span className="text-[11px] text-teal-600 font-medium bg-teal-100/70 px-2 py-0.5 rounded-full">
+                      Auto-styled Rich Text & Formulas
+                    </span>
                   </div>
-                  <div className="p-3 bg-white border border-gray-100 rounded-lg text-gray-900 leading-relaxed overflow-x-auto">
+                  <div className="p-4 sm:p-6 bg-white border border-gray-100 rounded-xl text-gray-900 leading-relaxed shadow-xs overflow-x-auto">
                     <MathRenderer content={content} />
                   </div>
                 </div>

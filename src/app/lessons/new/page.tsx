@@ -13,6 +13,7 @@ import { uploadService } from '@/services/upload.service';
 import { exerciseService, Exercise } from '@/services/exercise.service';
 import { Subject, SchoolClass } from '@/types/curriculum.types';
 import { ttsService, TtsVoice } from '@/services/tts.service';
+import { aiGeneratorService } from '@/services/ai-generator.service';
 import { useResponseModal } from '@/context/ModalContext';
 import {
   ArrowLeft,
@@ -57,6 +58,7 @@ function NewLessonContent() {
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [errors, setErrors] = useState<{ title?: string; content?: string }>({});
 
   // Optional Lesson Learning Objectives
@@ -387,9 +389,61 @@ function NewLessonContent() {
 
         {/* Card Container */}
         <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-10 border border-gray-100 shadow-2xs">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mb-6">
-            New Lesson
-          </h1>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
+              New Lesson
+            </h1>
+            {/* Optional AI Assistant Button */}
+            <button
+              type="button"
+              onClick={async () => {
+                if (!title || !title.trim()) {
+                  showError('Topic / Lesson Title Required', 'Please enter a Lesson Title first before using AI generation.');
+                  return;
+                }
+                const selectedSubjObj = availableSubjects.find((s) => s._id === selectedSubjectId);
+                try {
+                  setIsGeneratingAi(true);
+                  const result = await aiGeneratorService.generateLesson({
+                    topicTitle: title,
+                    subjectName: selectedSubjObj?.name,
+                    classLevel: selectedClasses.length > 0 ? selectedClasses.join(', ') : selectedSubjObj?.classLevel,
+                  });
+
+                  if (result) {
+                    if (result.title && (!title || title.trim().length < 5)) {
+                      setTitle(result.title);
+                    }
+                    if (Array.isArray(result.objectives) && result.objectives.length > 0) {
+                      setObjectives(result.objectives);
+                    }
+                    if (Array.isArray(result.outlines) && result.outlines.length > 0) {
+                      setOutlines(result.outlines);
+                    }
+                    if (result.content) {
+                      setContent(result.content);
+                    }
+                    showSuccess(
+                      'AI Lesson Generated!',
+                      'Objectives, outlines, and lesson content have been generated. You can review, edit, or adjust anything.'
+                    );
+                  }
+                } catch (err: any) {
+                  showError(
+                    'AI Generation Notice',
+                    err?.response?.data?.message || err?.message || 'Could not generate with AI.'
+                  );
+                } finally {
+                  setIsGeneratingAi(false);
+                }
+              }}
+              disabled={isGeneratingAi}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-linear-to-r from-[#0D6D62] to-[#128a7d] text-white text-xs sm:text-sm font-bold shadow-sm hover:opacity-95 transition-all disabled:opacity-50 cursor-pointer w-fit"
+            >
+              <Sparkles className={`w-4 h-4 ${isGeneratingAi ? 'animate-spin' : ''}`} />
+              <span>{isGeneratingAi ? 'Generating Content with AI...' : '✨ Generate with AI (Free)'}</span>
+            </button>
+          </div>
 
           <div className="flex flex-col gap-6">
             {/* Lesson Title */}
@@ -679,14 +733,18 @@ function NewLessonContent() {
                 }}
               />
 
-              {/* Universal KaTeX Math & Science Live Preview */}
+              {/* Universal Formatted Lesson Live Preview */}
               {content && (
-                <div className="mt-3 p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 shadow-xs">
-                  <div className="text-[11px] font-bold text-[#127A71] uppercase tracking-wider mb-2 flex items-center justify-between">
-                    <span>📐 Live KaTeX Math & Science Formula Preview:</span>
-                    <span className="text-[10px] text-gray-400 font-normal">Formatted dynamically</span>
+                <div className="mt-4 p-5 bg-gradient-to-b from-teal-50/40 to-slate-50 border border-teal-200/80 rounded-2xl text-xs sm:text-sm text-slate-800 shadow-xs">
+                  <div className="text-[12px] font-bold text-[#0D6D62] uppercase tracking-wider mb-3 flex items-center justify-between pb-2 border-b border-teal-100">
+                    <span className="flex items-center gap-1.5">
+                      <span>✨ Formatted Lesson Preview (Mobile & Web View)</span>
+                    </span>
+                    <span className="text-[11px] text-teal-600 font-medium bg-teal-100/70 px-2 py-0.5 rounded-full">
+                      Auto-styled Rich Text & Formulas
+                    </span>
                   </div>
-                  <div className="p-3 bg-white border border-gray-100 rounded-lg text-gray-900 leading-relaxed overflow-x-auto">
+                  <div className="p-4 sm:p-6 bg-white border border-gray-100 rounded-xl text-gray-900 leading-relaxed shadow-xs overflow-x-auto">
                     <MathRenderer content={content} />
                   </div>
                 </div>

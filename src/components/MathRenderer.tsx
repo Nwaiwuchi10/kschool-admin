@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import katex from 'katex';
+import { formatMarkdownToHtml } from '@/utils/formatMarkdown';
 
 interface MathRendererProps {
   content: string;
@@ -11,8 +12,8 @@ interface MathRendererProps {
 
 /**
  * Universal Math, Physics, Chemistry & Rich HTML Content Renderer
- * - Seamlessly parses both rich HTML markup (headings, lists, bold, italics,
- *   tables, colors, blockquotes, images, embedded YouTube iframes)
+ * - Seamlessly parses both Markdown (# headings, lists, bold, italics, tables)
+ *   and rich HTML markup (colors, blockquotes, images, embedded YouTube iframes)
  *   AND LaTeX formulas ($...$ or $$...$$).
  */
 export const MathRenderer: React.FC<MathRendererProps> = ({
@@ -23,9 +24,11 @@ export const MathRenderer: React.FC<MathRendererProps> = ({
   const renderedHtml = useMemo(() => {
     if (!content) return '';
 
+    // First ensure markdown headings, lists, tables, bold/italics are converted to HTML
+    const htmlWithMarkdown = formatMarkdownToHtml(content);
+
     // Replace display math $$...$$ and inline math $...$ with KaTeX rendered HTML
-    // We replace $$...$$ first, then $...$
-    return content.replace(
+    return htmlWithMarkdown.replace(
       /(\$\$[\s\S]+?\$\$|\$[^\$\n]+?\$)/g,
       (match) => {
         if (match.startsWith('$$') && match.endsWith('$$')) {

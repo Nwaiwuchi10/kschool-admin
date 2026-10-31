@@ -6,6 +6,7 @@ import Link from 'next/link';
 import AdminLayout from '@/components/layout/AdminLayout';
 import PrimaryButton from '@/components/ui/PrimaryButton';
 import { quizService, QuizQuestion } from '@/services/quiz.service';
+import { aiGeneratorService } from '@/services/ai-generator.service';
 import { classService } from '@/services/class.service';
 import { subjectService } from '@/services/subject.service';
 import { SchoolClass, Subject } from '@/types/curriculum.types';
@@ -48,6 +49,8 @@ function CreateQuizContent() {
   ]);
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingAiQuestions, setIsGeneratingAiQuestions] = useState(false);
+  const [aiQuestionCount, setAiQuestionCount] = useState(5);
 
   // Fetch classes on mount
   useEffect(() => {
@@ -355,6 +358,77 @@ function CreateQuizContent() {
 
           {/* Section 2: Question Builder & Math/Formula Tools */}
           <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-2xs space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-100">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">
+                  Quiz Questions ({questions.length})
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Build multiple-choice questions manually or generate them automatically with AI.
+                </p>
+              </div>
+
+              {/* Optional AI Question Generation Toolbar */}
+              <div className="flex items-center gap-2">
+                <select
+                  value={aiQuestionCount}
+                  onChange={(e) => setAiQuestionCount(Number(e.target.value))}
+                  disabled={isGeneratingAiQuestions}
+                  className="px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 bg-white"
+                >
+                  <option value={3}>3 Questions</option>
+                  <option value={5}>5 Questions</option>
+                  <option value={10}>10 Questions</option>
+                </select>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const activeTopicObj = availableTopics.find((t) => t._id === topicId);
+                    const topicName = activeTopicObj?.title || title;
+
+                    if (!topicName || !topicName.trim()) {
+                      showError('Topic Required', 'Please enter a Quiz Title or select a Topic before generating questions with AI.');
+                      return;
+                    }
+
+                    try {
+                      setIsGeneratingAiQuestions(true);
+                      const result = await aiGeneratorService.generateQuiz({
+                        topicTitle: topicName,
+                        subjectName: subject,
+                        classLevel,
+                        numberOfQuestions: aiQuestionCount,
+                      });
+
+                      if (result && Array.isArray(result.questions) && result.questions.length > 0) {
+                        setQuestions(result.questions);
+                        setActiveQuestionIndex(0);
+                        if (!title || title.trim().length < 5) {
+                          setTitle(result.title || `Quiz: ${topicName}`);
+                        }
+                        showSuccess(
+                          'AI Questions Generated!',
+                          `Successfully generated ${result.questions.length} questions. You can review, edit options, or add more.`
+                        );
+                      }
+                    } catch (err: any) {
+                      showError(
+                        'AI Generation Notice',
+                        err?.response?.data?.message || err?.message || 'Could not generate questions with AI.'
+                      );
+                    } finally {
+                      setIsGeneratingAiQuestions(false);
+                    }
+                  }}
+                  disabled={isGeneratingAiQuestions}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-linear-to-r from-[#0D6D62] to-[#128a7d] text-white text-xs font-bold shadow-xs hover:opacity-95 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <Sparkles className={`w-3.5 h-3.5 ${isGeneratingAiQuestions ? 'animate-spin' : ''}`} />
+                  <span>{isGeneratingAiQuestions ? 'Generating...' : '✨ Generate with AI (Free)'}</span>
+                </button>
+              </div>
+            </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
               <div>
                 <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
