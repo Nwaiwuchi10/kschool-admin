@@ -10,6 +10,7 @@ import { classService } from '@/services/class.service';
 import { subjectService } from '@/services/subject.service';
 import { lessonService } from '@/services/lesson.service';
 import { SchoolClass, Subject } from '@/types/curriculum.types';
+import { aiGeneratorService } from '@/services/ai-generator.service';
 import { useResponseModal } from '@/context/ModalContext';
 import { FormulaToolbar } from '@/components/FormulaToolbar';
 import { MathRenderer } from '@/components/MathRenderer';
@@ -20,6 +21,7 @@ import {
   CheckCircle2,
   Circle,
   FileQuestion,
+  Sparkles,
   HelpCircle,
   Clock,
   Award,
@@ -63,6 +65,8 @@ function EditExerciseContent() {
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+  const [aiQuestionCount, setAiQuestionCount] = useState(5);
 
   // Load existing exercise details & classes
   useEffect(() => {
@@ -573,7 +577,92 @@ function EditExerciseContent() {
                 ))}
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {/* AI Question Count Selector */}
+                <select
+                  value={aiQuestionCount}
+                  onChange={(e) => setAiQuestionCount(Number(e.target.value))}
+                  className="px-2.5 py-1.5 rounded-xl border border-teal-200 text-xs font-bold text-[#0D6D62] bg-teal-50/70 focus:outline-none cursor-pointer"
+                  title="Number of questions to generate with AI"
+                >
+                  <option value={3}>3 Questions</option>
+                  <option value={5}>5 Questions</option>
+                  <option value={8}>8 Questions</option>
+                  <option value={10}>10 Questions</option>
+                  <option value={15}>15 Questions</option>
+                </select>
+
+                {/* Optional AI Assistant Button */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const targetTopicOrLesson = lesson || topic || title;
+                    if (!targetTopicOrLesson || !targetTopicOrLesson.trim()) {
+                      showError(
+                        'Lesson / Topic Required',
+                        'Please enter an Exercise Title, Topic, or select an Associated Lesson first before generating questions with AI.'
+                      );
+                      return;
+                    }
+
+                    try {
+                      setIsGeneratingAi(true);
+
+                      // If a lesson is selected, fetch full lesson content to ground the AI questions
+                      let lessonContentContext = '';
+                      const matchedLesson = availableLessons.find((l) => l.title === lesson || l.id === lesson);
+                      if (matchedLesson && /^[a-fA-F0-9]{24}$/.test(matchedLesson.id)) {
+                        try {
+                          const fullLesson = await lessonService.getLessonById(matchedLesson.id);
+                          if (fullLesson && fullLesson.content) {
+                            lessonContentContext = fullLesson.content;
+                          }
+                        } catch {
+                          // Continue with title context
+                        }
+                      }
+
+                      const result = await aiGeneratorService.generateQuiz({
+                        topicTitle: targetTopicOrLesson,
+                        subjectName: subject,
+                        classLevel,
+                        lessonContent: lessonContentContext,
+                        numberOfQuestions: aiQuestionCount,
+                      });
+
+                      if (result && Array.isArray(result.questions) && result.questions.length > 0) {
+                        const mappedQuestions: ExerciseQuestion[] = result.questions.map((q) => ({
+                          questionText: q.questionText,
+                          options: q.options && q.options.length === 4 ? q.options : [q.options[0] || 'A', q.options[1] || 'B', q.options[2] || 'C', q.options[3] || 'D'],
+                          correctOptionIndex: typeof q.correctOptionIndex === 'number' ? q.correctOptionIndex : 0,
+                          hint: '',
+                          explanation: q.explanation || '',
+                        }));
+
+                        setQuestions(mappedQuestions);
+                        setActiveQuestionIndex(0);
+
+                        showSuccess(
+                          'AI Questions Generated!',
+                          `Successfully generated ${mappedQuestions.length} practice questions based on "${targetTopicOrLesson}". You can review, edit options, or add more questions.`
+                        );
+                      }
+                    } catch (err: any) {
+                      showError(
+                        'AI Generation Notice',
+                        err?.response?.data?.message || err?.message || 'Could not generate exercise questions with AI.'
+                      );
+                    } finally {
+                      setIsGeneratingAi(false);
+                    }
+                  }}
+                  disabled={isGeneratingAi}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{isGeneratingAi ? 'Generating...' : '✨ Generate with AI'}</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={addQuestion}
