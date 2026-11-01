@@ -261,7 +261,7 @@ function ViewExerciseContent() {
                     return (
                       <div
                         key={oIdx}
-                        className={`p-3 rounded-xl border flex items-center gap-2.5 text-xs font-medium transition-all ${
+                        className={`p-3 rounded-xl border flex items-center gap-3 text-xs font-medium transition-all ${
                           isCorrect
                             ? 'bg-[#E6F7F3] border-[#127A71] text-[#0D6D62] font-bold shadow-2xs'
                             : 'bg-gray-50 border-gray-200 text-gray-700'
@@ -272,14 +272,14 @@ function ViewExerciseContent() {
                         ) : (
                           <Circle className="w-4 h-4 text-gray-300 shrink-0" />
                         )}
-                        <span className="text-gray-400 font-bold mr-1">
+                        <span className="shrink-0 text-gray-500 font-bold w-5">
                           {String.fromCharCode(65 + oIdx)}.
                         </span>
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0 leading-relaxed">
                           <MathRenderer content={opt} />
                         </div>
                         {isCorrect && (
-                          <span className="text-[10px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-[#0D6D62]">
+                          <span className="shrink-0 text-[10px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-[#0D6D62]">
                             Correct
                           </span>
                         )}
