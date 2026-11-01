@@ -758,7 +758,7 @@ function EditExerciseContent() {
                     return (
                       <div
                         key={oIdx}
-                        className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all ${
+                        className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
                           isCorrect
                             ? 'bg-[#E6F7F3] border-[#0D6D62]'
                             : 'bg-white border-gray-200'
@@ -767,31 +767,38 @@ function EditExerciseContent() {
                         <button
                           type="button"
                           onClick={() => updateCurrentQuestion('correctOptionIndex', oIdx)}
-                          className="shrink-0 cursor-pointer"
+                          className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center cursor-pointer transition-colors"
                           title={isCorrect ? 'Correct Answer' : 'Click to mark as correct'}
                         >
                           {isCorrect ? (
-                            <CheckCircle2 className="w-5 h-5 text-[#0D6D62]" />
+                            <CheckCircle2 className="w-5 h-5 fill-[#0D6D62] text-white" />
                           ) : (
                             <Circle className="w-5 h-5 text-gray-300 hover:text-gray-400" />
                           )}
                         </button>
-                        <span className="text-xs font-bold text-gray-500 w-4">
+                        <span className="shrink-0 text-xs font-bold text-gray-500 w-5">
                           {String.fromCharCode(65 + oIdx)}.
                         </span>
-                        <input
-                          type="text"
-                          value={opt}
-                          onChange={(e) => updateOptionText(oIdx, e.target.value)}
-                          placeholder={`Option ${String.fromCharCode(65 + oIdx)} (e.g. Yes, No, or Answer text)...`}
-                          className="flex-1 px-3 py-1.5 rounded-lg border border-gray-200 text-xs focus:outline-none focus:border-[#0D6D62] bg-white"
-                        />
+                        <div className="flex-1 flex flex-col justify-center min-w-0">
+                          <input
+                            type="text"
+                            value={opt}
+                            onChange={(e) => updateOptionText(oIdx, e.target.value)}
+                            placeholder={`Option ${String.fromCharCode(65 + oIdx)} (e.g. Yes, No, or Answer text)...`}
+                            className="w-full text-sm bg-transparent border-none focus:outline-none text-gray-900 leading-normal"
+                          />
+                          {opt && (opt.includes('$') || opt.includes('\\(')) && (
+                            <div className="mt-1 text-xs text-gray-600 bg-gray-50/80 px-2 py-0.5 rounded border border-gray-100 w-fit">
+                              <MathRenderer content={opt} />
+                            </div>
+                          )}
+                        </div>
                         {/* Remove Option Button (if > 2 options) */}
                         {currentQ.options.length > 2 && (
                           <button
                             type="button"
                             onClick={() => handleRemoveOption(oIdx)}
-                            className="text-gray-300 hover:text-red-500 p-1 rounded-lg transition-colors cursor-pointer"
+                            className="shrink-0 text-gray-300 hover:text-red-500 p-1.5 rounded-lg transition-colors cursor-pointer"
                             title="Remove this option"
                           >
                             <Trash2 className="w-4 h-4" />

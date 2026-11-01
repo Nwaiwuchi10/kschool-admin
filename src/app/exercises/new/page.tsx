@@ -810,24 +810,32 @@ function CreateExerciseContent() {
                         )}
                       </button>
 
-                      <span className="text-xs font-bold text-gray-400 w-5">
+                      <span className="shrink-0 text-xs font-bold text-gray-500 w-5">
                         {String.fromCharCode(65 + optIdx)}.
                       </span>
 
-                      <input
-                        type="text"
-                        placeholder={`Option ${String.fromCharCode(65 + optIdx)} (e.g. Yes, No, or Answer text)`}
-                        value={opt}
-                        onChange={(e) => handleOptionChange(optIdx, e.target.value)}
-                        className="flex-1 text-sm bg-transparent border-none focus:outline-none text-gray-900"
-                      />
+                      <div className="flex-1 flex flex-col justify-center min-w-0">
+                        <input
+                          type="text"
+                          placeholder={`Option ${String.fromCharCode(65 + optIdx)} (e.g. Yes, No, or Answer text)`}
+                          value={opt}
+                          onChange={(e) => handleOptionChange(optIdx, e.target.value)}
+                          className="w-full text-sm bg-transparent border-none focus:outline-none text-gray-900 leading-normal"
+                        />
+                        {/* Live math preview if option contains formula */}
+                        {opt && (opt.includes('$') || opt.includes('\\(')) && (
+                          <div className="mt-1 text-xs text-gray-600 bg-gray-50/80 px-2 py-0.5 rounded border border-gray-100 w-fit">
+                            <MathRenderer content={opt} />
+                          </div>
+                        )}
+                      </div>
 
                       {/* Remove Option Button (if more than 2 options) */}
                       {currentQ.options.length > 2 && (
                         <button
                           type="button"
                           onClick={() => handleRemoveOption(optIdx)}
-                          className="text-gray-300 hover:text-red-500 p-1 rounded-lg transition-colors cursor-pointer"
+                          className="shrink-0 text-gray-300 hover:text-red-500 p-1.5 rounded-lg transition-colors cursor-pointer"
                           title="Remove this option"
                         >
                           <Trash2 className="w-4 h-4" />
