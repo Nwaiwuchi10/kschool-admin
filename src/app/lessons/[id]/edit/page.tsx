@@ -13,6 +13,7 @@ import { subjectService } from '@/services/subject.service';
 import { classService } from '@/services/class.service';
 import { Subject, SchoolClass } from '@/types/curriculum.types';
 import { ttsService } from '@/services/tts.service';
+import { aiGeneratorService } from '@/services/ai-generator.service';
 import { useResponseModal } from '@/context/ModalContext';
 import {
   ArrowLeft,
@@ -52,6 +53,7 @@ function EditLessonContent() {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
 
   // Optional Lesson Learning Objectives
   const [objectives, setObjectives] = useState<string[]>([]);
@@ -463,9 +465,61 @@ function EditLessonContent() {
 
         {/* Card Container */}
         <div className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-10 border border-gray-100 shadow-2xs">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mb-6">
-            Edit Lesson
-          </h1>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
+              Edit Lesson
+            </h1>
+            {/* Optional AI Assistant Button */}
+            <button
+              type="button"
+              onClick={async () => {
+                if (!title || !title.trim()) {
+                  showError('Topic / Lesson Title Required', 'Please enter a Lesson Title first before using AI generation.');
+                  return;
+                }
+                const selectedSubjObj = availableSubjects.find((s) => s._id === selectedSubjectId);
+                try {
+                  setIsGeneratingAi(true);
+                  const result = await aiGeneratorService.generateLesson({
+                    topicTitle: title,
+                    subjectName: selectedSubjObj?.name,
+                    classLevel: selectedClasses.length > 0 ? selectedClasses.join(', ') : selectedSubjObj?.classLevel,
+                  });
+
+                  if (result) {
+                    if (result.title && (!title || title.trim().length < 5)) {
+                      setTitle(result.title);
+                    }
+                    if (Array.isArray(result.objectives) && result.objectives.length > 0) {
+                      setObjectives(result.objectives);
+                    }
+                    if (Array.isArray(result.outlines) && result.outlines.length > 0) {
+                      setOutlines(result.outlines);
+                    }
+                    if (result.content) {
+                      setContent(result.content);
+                    }
+                    showSuccess(
+                      'AI Lesson Generated!',
+                      'Objectives, outlines, and lesson content have been generated. You can review, edit, or adjust anything.'
+                    );
+                  }
+                } catch (err: any) {
+                  showError(
+                    'AI Generation Notice',
+                    err?.response?.data?.message || err?.message || 'Could not generate with AI.'
+                  );
+                } finally {
+                  setIsGeneratingAi(false);
+                }
+              }}
+              disabled={isGeneratingAi}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-linear-to-r from-[#0D6D62] to-[#128a7d] text-white text-xs sm:text-sm font-bold shadow-sm hover:opacity-95 transition-all disabled:opacity-50 cursor-pointer w-fit"
+            >
+              <Sparkles className={`w-4 h-4 ${isGeneratingAi ? 'animate-spin' : ''}`} />
+              <span>{isGeneratingAi ? 'Generating Content with AI...' : '✨ Generate with AI (Free)'}</span>
+            </button>
+          </div>
 
           <form onSubmit={handleSave} className="flex flex-col gap-6">
             {/* Lesson Title */}
