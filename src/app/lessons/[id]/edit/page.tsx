@@ -545,9 +545,16 @@ function EditLessonContent() {
                     setSelectedSubjectId(subId);
                     setSelectedTopicId('');
                     const found = availableSubjects.find((s) => s._id === subId);
-                    if (found && found.classes && found.classes.length > 0) {
-                      // Automatically inherit linked classes from the subject if not set
-                      setSelectedClasses(found.classes);
+                    if (found) {
+                      const subjectLinkedClasses =
+                        found.classes && found.classes.length > 0
+                          ? found.classes
+                          : found.classLevel
+                          ? [found.classLevel]
+                          : [];
+                      if (subjectLinkedClasses.length > 0) {
+                        setSelectedClasses(subjectLinkedClasses);
+                      }
                     }
                     if (subId) {
                       try {
@@ -631,6 +638,11 @@ function EditLessonContent() {
                 </div>
 
                 <div className="border border-gray-200 rounded-xl p-2.5 bg-white max-h-36 overflow-y-auto space-y-1.5">
+                  {selectedSubjectId && availableSubjects.find((s) => s._id === selectedSubjectId)?.classLevel && (
+                    <div className="text-[10px] text-amber-700 bg-amber-50 px-2 py-1 rounded-md border border-amber-200 mb-1">
+                      Subject is designated for: <strong>{availableSubjects.find((s) => s._id === selectedSubjectId)?.classLevel}</strong>. Target classes are automatically aligned.
+                    </div>
+                  )}
                   {availableClasses.length === 0 ? (
                     <span className="text-xs text-gray-400">No classes registered</span>
                   ) : (
