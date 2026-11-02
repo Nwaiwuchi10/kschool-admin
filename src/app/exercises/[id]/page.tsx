@@ -272,11 +272,11 @@ function ViewExerciseContent() {
                         ) : (
                           <Circle className="w-4 h-4 text-gray-300 shrink-0" />
                         )}
-                        <span className="shrink-0 text-gray-500 font-bold w-5">
+                        <span className="shrink-0 text-gray-700 font-extrabold w-5 text-xs">
                           {String.fromCharCode(65 + oIdx)}.
                         </span>
-                        <div className="flex-1 min-w-0 leading-relaxed">
-                          <MathRenderer content={opt} />
+                        <div className="flex-1 min-w-0 leading-normal flex items-center">
+                          <MathRenderer content={opt} inline className="leading-normal [&>p]:mb-0 [&>p]:inline [&>p]:leading-normal" />
                         </div>
                         {isCorrect && (
                           <span className="shrink-0 text-[10px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-[#0D6D62]">
